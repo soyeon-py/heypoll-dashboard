@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>헤이폴 비즈니스 KPI 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0f1117;
+            --card: #1a1d27;
+            --border: #2a2d3a;
+            --text: #e4e4e7;
+            --text-dim: #8b8d97;
+            --accent: #6366f1;
+            --green: #22c55e;
+            --red: #ef4444;
+            --yellow: #eab308;
+            --blue: #3b82f6;
+            --purple: #a855f7;
+            --pink: #ec4899;
+            --orange: #f97316;
+        }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header .meta {
+            color: var(--text-dim);
+            font-size: 13px;
+            text-align: right;
+        }
+        .tab-nav {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            padding: 10px 18px;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+        }
+        .kpi-card .label {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .kpi-card .value { font-size: 28px; font-weight: 700; }
+        .kpi-card .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+        .kpi-card .change { font-size: 12px; margin-top: 4px; }
+        .kpi-card .change.up { color: var(--green); }
+        .kpi-card .change.down { color: var(--red); }
+        .kpi-card .change.neutral { color: var(--text-dim); }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .chart-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .chart-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+        .chart-card canvas { max-height: 300px; }
+        .chart-card.full { grid-column: 1 / -1; }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .data-table th {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-dim);
+            font-weight: 500;
+            font-size: 12px;
+        }
+        .data-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table tr:hover { background: rgba(99, 102, 241, 0.05); }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge.welcome { background: #1e293b; color: #94a3b8; }
+        .badge.good { background: #14532d; color: #86efac; }
+        .badge.best { background: #422006; color: #fdba74; }
+        .badge.soul { background: #4c1d95; color: #c4b5fd; }
+        .badge.close { background: #7f1d1d; color: #fca5a5; }
+        .trend-note {
+            color: var(--text-dim);
+            font-size: 13px;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--card);
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+        }
+        /* ── Funnel Styles ── */
+        .funnel-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .funnel-visual-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px 20px;
+        }
+        .funnel-visual-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+        .funnel-steps { display: flex; flex-direction: column; align-items: center; gap: 0; }
+        .funnel-step-row { width: 100%; display: flex; flex-direction: column; align-items: center; }
+        .funnel-bar-wrap {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        .funnel-bar {
+            height: 46px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            transition: opacity 0.2s;
+            cursor: default;
+            position: relative;
+            overflow: hidden;
+        }
+        .funnel-bar:hover { filter: brightness(1.15); }
+        .funnel-bar .f-label { font-size: 13px; font-weight: 600; color: #fff; z-index: 1; white-space: nowrap; }
+        .funnel-bar .f-count { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.95); z-index: 1; }
+        .funnel-bar .f-pct   { font-size: 12px; color: rgba(255,255,255,0.75); margin-left: 8px; z-index: 1; }
+        .funnel-drop {
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+        .funnel-drop .drop-arrow { color: #ef444480; font-size: 14px; }
+        .funnel-drop .drop-num  { color: #ef4444; font-weight: 600; }
+        .funnel-drop .drop-abs  { color: var(--text-dim); }
+        .funnel-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .funnel-insight {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+        }
+        .funnel-insight h4 { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+        .insight-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .insight-item:last-child { border-bottom: none; }
+        .insight-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        @media (max-width: 900px) {
+            .funnel-layout { grid-template-columns: 1fr; }
+            .funnel-kpi-row { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>헤이폴 비즈니스 KPI 대시보드</h1>
+        <div class="meta" id="generated-at"></div>
+    </div>
+
+    <!-- 데이터 기준 안내 배너 -->
+    <div style="background:#1e293b;border:1px solid #f59e0b55;border-radius:8px;padding:10px 16px;margin:0 0 12px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="background:#f59e0b20;border:1px solid #f59e0b;color:#f59e0b;padding:2px 8px;border-radius:4px;font-weight:700;white-space:nowrap;">⚠️ 활성 회원 기준</span>
+        <span>개요·인게이지먼트·전환·코호트 등 <b style="color:#fde68a;">모든 탭은 활성 회원만 포함</b>된 데이터입니다. &nbsp;•&nbsp; 활성 회원 = 최근 <b style="color:#e2e8f0;">로그인 또는 포인트 변경</b>이 발생한 회원. &nbsp;•&nbsp; 전체 가입 회원(비활성·이탈 포함) 분석은 <b style="color:#e2e8f0;">전체 회원 탭</b>을 이용하세요.</span>
+    </div>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" data-tab="overview">개요</button>
+        <button class="tab-btn" data-tab="engagement">인게이지먼트</button>
+        <button class="tab-btn" data-tab="monetization">수익 · 전환</button>
+        <button class="tab-btn" data-tab="demographics">회원 분석</button>
+        <button class="tab-btn" data-tab="funnel">전환 퍼널</button>
+        <button class="tab-btn" data-tab="cohort">코호트 이탈</button>
+        <button class="tab-btn" data-tab="ga">GA 행동 <span style="font-size:9px;background:#3b82f625;border:1px solid #3b82f650;color:#60a5fa;padding:1px 5px;border-radius:3px;font-weight:600;vertical-align:middle;">GA기준</span></button>
+        <button class="tab-btn" data-tab="join">교차 분석 <span style="font-size:9px;background:#3b82f625;border:1px solid #3b82f650;color:#60a5fa;padding:1px 5px;border-radius:3px;font-weight:600;vertical-align:middle;">GA기준</span></button>
+        <button class="tab-btn" data-tab="trend">일별 트렌드</button>
+        <button class="tab-btn" data-tab="fullmember">전체 회원 <span style="font-size:9px;background:#f59e0b25;border:1px solid #f59e0b50;color:#f59e0b;padding:1px 5px;border-radius:3px;font-weight:600;vertical-align:middle;">전체기준</span></button>
+    </div>
+
+    <!-- TAB: Overview -->
+    <div class="tab-content active" id="tab-overview">
+        <div class="kpi-grid" id="overview-kpis"></div>
+        <!-- 일별 KPI 인사이트 -->
+        <div class="funnel-insight" id="overview-insights-wrap" style="margin-bottom:16px;display:none;">
+            <h4>💡 일별 변화 인사이트</h4>
+            <div id="overview-insights-list"></div>
+        </div>
+        <div class="chart-grid">
+            <div class="chart-card"><h3>등급 분포</h3><canvas id="chart-grade"></canvas></div>
+            <div class="chart-card"><h3>알림 수신동의율</h3><canvas id="chart-noti"></canvas></div>
+            <div class="chart-card"><h3>포인트 전환액 분포</h3><canvas id="chart-point-dist"></canvas></div>
+            <div class="chart-card"><h3>광고 유형별 적립 (이번 달)</h3><canvas id="chart-ad-type"></canvas></div>
+        </div>
+    </div>
+
+    <!-- TAB: Engagement -->
+    <div class="tab-content" id="tab-engagement">
+        <div class="kpi-grid" id="engage-kpis"></div>
+        <div class="chart-grid">
+            <div class="chart-card"><h3>광고 유형별 참여자 vs 횟수</h3><canvas id="chart-ad-detail"></canvas></div>
+            <div class="chart-card"><h3>월 출석일수 분포</h3><canvas id="chart-attendance-dist"></canvas></div>
+            <div class="chart-card"><h3>댓글 · 공유 활동 회원 비율</h3><canvas id="chart-engage-funnel"></canvas></div>
+            <div class="chart-card"><h3>이벤트 당첨 현황</h3><canvas id="chart-event-win"></canvas></div>
+        </div>
+    </div>
+
+    <!-- TAB: Monetization -->
+    <div class="tab-content" id="tab-monetization">
+        <div class="kpi-grid" id="money-kpis"></div>
+        <div class="chart-grid">
+            <div class="chart-card"><h3>포인트 전환액 구간별 회원 수</h3><canvas id="chart-point-segment"></canvas></div>
+            <div class="chart-card"><h3>등급별 평균 전환액</h3><canvas id="chart-grade-point"></canvas></div>
+        </div>
+    </div>
+
+    <!-- TAB: Demographics -->
+    <div class="tab-content" id="tab-demographics">
+        <div class="chart-grid">
+            <div class="chart-card"><h3>성별 분포</h3><canvas id="chart-sex"></canvas></div>
+            <div class="chart-card"><h3>연령대 분포</h3><canvas id="chart-age"></canvas></div>
+            <div class="chart-card"><h3>지역별 회원 수 (Top 10)</h3><canvas id="chart-region"></canvas></div>
+            <div class="chart-card"><h3>가입 연도별 코호트</h3><canvas id="chart-cohort"></canvas></div>
+        </div>
+        <div class="chart-grid">
+            <div class="chart-card full"><h3>등급 변동 현황 (Top 15)</h3>
+                <table class="data-table" id="grade-change-table">
+                    <thead><tr><th>등급 변화</th><th>인원</th><th>비율</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: Funnel -->
+    <div class="tab-content" id="tab-funnel">
+        <!-- KPI 요약 행 -->
+        <div class="funnel-kpi-row" id="funnel-kpis"></div>
+
+        <!-- 퍼널 + 리텐션 분포 -->
+        <div class="funnel-layout">
+            <div class="funnel-visual-card">
+                <h3>포인트 전환 퍼널 — 단계별 이탈률</h3>
+                <div class="funnel-steps" id="funnel-steps-container"></div>
+            </div>
+            <div class="funnel-visual-card">
+                <h3>마지막 전환 경과일 분포</h3>
+                <canvas id="chart-recency-dist" style="max-height:280px;"></canvas>
+                <div style="margin-top:16px;">
+                    <h3>등급별 평균 마지막 전환 경과일 (일)</h3>
+                    <canvas id="chart-grade-recency" style="max-height:200px;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 단계 정의 -->
+        <div class="funnel-insight" style="margin-bottom:16px;">
+            <h4>📋 퍼널 단계 정의</h4>
+            <table class="data-table" style="margin-top:4px;">
+                <thead>
+                    <tr>
+                        <th style="width:28px;">#</th>
+                        <th>단계명</th>
+                        <th>기준 컬럼</th>
+                        <th>조건</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:#6366f1;vertical-align:middle;"></span></td>
+                        <td><b>활성 회원 (스냅샷)</b></td>
+                        <td><code>user_id</code></td>
+                        <td>스냅샷 기준일에 <b>로그인 또는 포인트 변경</b>이 있었던 회원 수 (전체 회원 아님)</td>
+                    </tr>
+                    <tr>
+                        <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:#3b82f6;vertical-align:middle;"></span></td>
+                        <td><b>당일 활성</b></td>
+                        <td><code>이번 달 출석 참여 일수</code></td>
+                        <td>전날 대비 출석일수 증가한 회원 수 (당일 방문자)</td>
+                    </tr>
+                    <tr>
+                        <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:#14b8a6;vertical-align:middle;"></span></td>
+                        <td><b>인게이지먼트 활동</b></td>
+                        <td><code>광고 적립 횟수 (링크/스크래치/비디오)</code><br><code>이벤트·설문 댓글 참여 수</code></td>
+                        <td>이번달 링크·스크래치·비디오 광고 적립 OR 이벤트·설문 댓글 중 하나라도 1회 이상</td>
+                    </tr>
+                    <tr>
+                        <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:#22c55e;vertical-align:middle;"></span></td>
+                        <td><b>포인트 전환 경험</b></td>
+                        <td><code>포인트 전환액 (올해 누적)</code></td>
+                        <td>올해 누적 전환액 > 0</td>
+                    </tr>
+                    <tr>
+                        <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:#eab308;vertical-align:middle;"></span></td>
+                        <td><b>30일 이내 전환</b></td>
+                        <td><code>마지막 포인트 전환 일시</code></td>
+                        <td>스냅샷 기준일 - 마지막 전환일 ≤ 30일</td>
+                    </tr>
+                    <tr>
+                        <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:#f97316;vertical-align:middle;"></span></td>
+                        <td><b>7일 이내 전환</b></td>
+                        <td><code>마지막 포인트 전환 일시</code></td>
+                        <td>스냅샷 기준일 - 마지막 전환일 ≤ 7일</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 인사이트 -->
+        <div class="funnel-insight">
+            <h4>📌 퍼널 인사이트</h4>
+            <div id="funnel-insights-list"></div>
+        </div>
+
+        <!-- 일별 퍼널 추이 -->
+        <div class="funnel-visual-card" style="margin-top:20px;">
+            <h3>📅 일별 퍼널 추이 — 단계별 전환률 변화</h3>
+            <p style="font-size:12px;color:var(--text-dim);margin:-10px 0 16px;">각 단계의 전체 대비 비율(%) 일별 추이. 데이터가 쌓일수록 트렌드가 뚜렷해집니다.</p>
+            <canvas id="chart-funnel-daily-rate" height="90"></canvas>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+            <div class="funnel-visual-card">
+                <h3>📊 일별 퍼널 단계별 인원 비교</h3>
+                <p style="font-size:12px;color:var(--text-dim);margin:-10px 0 16px;">날짜별 각 단계 인원 수 그룹 비교</p>
+                <canvas id="chart-funnel-daily-count" height="140"></canvas>
+            </div>
+            <div class="funnel-visual-card">
+                <h3>📉 일별 전환 핵심 지표 비교</h3>
+                <p style="font-size:12px;color:var(--text-dim);margin:-10px 0 16px;">7일·30일 전환자 수 및 재활성화 타겟 추이</p>
+                <canvas id="chart-funnel-daily-kpi" height="140"></canvas>
+            </div>
+        </div>
+
+        <!-- 누적지표 일별 증분 -->
+        <div class="funnel-visual-card" style="margin-top:16px;">
+            <h3>📈 누적지표 일별 증분 <span style="font-size:11px;font-weight:400;color:var(--text-dim);">(전일 대비 순증)</span></h3>
+            <p style="font-size:12px;color:var(--text-dim);margin:-8px 0 14px;">
+                <b style="color:#eab308;">포인트 전환 경험</b>·<b style="color:#f97316;">전환액</b>은 연간 누적 컬럼입니다.
+                아래 차트는 이를 일별 발생 데이터로 변환한 값입니다. (당일 신규 발생량 = 오늘 누적 − 어제 누적)
+            </p>
+            <canvas id="chart-funnel-daily-delta" height="80"></canvas>
+        </div>
+
+        <!-- 일별 퍼널 수치 테이블 -->
+        <div class="funnel-visual-card" style="margin-top:16px;">
+            <h3>📋 일별 퍼널 수치 테이블</h3>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="funnel-daily-table">
+                    <thead><tr id="funnel-daily-thead"></tr></thead>
+                    <tbody id="funnel-daily-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: Cohort -->
+    <div class="tab-content" id="tab-cohort">
+
+        <!-- KPI row: 최신일 전체 참여율 -->
+        <div class="kpi-grid" id="cohort-kpis"></div>
+
+        <!-- 전체 활동 참여율 일별 추이 -->
+        <div class="funnel-visual-card" style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                <h3 style="margin:0;">📈 활동별 참여율 일별 추이 (스냅샷 활성 회원 기준)</h3>
+                <div style="font-size:11px;color:var(--text-dim);">
+                    <span style="background:#f9731620;border:1px solid #f97316;padding:2px 8px;border-radius:4px;margin-right:6px;">🔄 월간 집계: 월 초 초기화됨</span>
+                    <span style="background:#3b82f620;border:1px solid #3b82f6;padding:2px 8px;border-radius:4px;">📅 연간 누적: 연속 비교 가능</span>
+                </div>
+            </div>
+            <canvas id="chart-cohort-overall" height="80"></canvas>
+        </div>
+
+        <!-- 스냅샷 기준 이탈·유입 흐름 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div class="funnel-visual-card">
+                <h3>📉 일별 이탈률 · 유지율 추이</h3>
+                <p style="font-size:12px;color:var(--text-dim);margin:-8px 0 12px;">고유 회원 ID 기준 — 전일 스냅샷에 있었다가 당일 없어진 유저 = 이탈. 점선 구간은 월 경계입니다.</p>
+                <canvas id="chart-churn-line" height="150"></canvas>
+            </div>
+            <div class="funnel-visual-card">
+                <h3>📊 일별 신규·재활성화 vs 이탈 흐름</h3>
+                <p style="font-size:12px;color:var(--text-dim);margin:-8px 0 12px;">고유 회원 ID 기준 순 유입/이탈 인원</p>
+                <canvas id="chart-churn-flow" height="150"></canvas>
+            </div>
+        </div>
+
+        <!-- 스냅샷·활동 상세 테이블 -->
+        <div class="funnel-visual-card" style="margin-bottom:16px;">
+            <h3>🔢 일별 이탈 상세 수치 <span style="font-size:11px;font-weight:400;color:var(--text-dim);">(ID 기준 스냅샷 + 월간 활동)</span></h3>
+            <p style="font-size:12px;color:var(--text-dim);margin:-8px 0 12px;">⚠️ 월 경계 구간의 월간 활동 이탈률은 집계 초기화로 신뢰 불가</p>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="cohort-churn-table">
+                    <thead><tr id="cohort-churn-thead"></tr></thead>
+                    <tbody id="cohort-churn-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 코호트 선택 섹션 -->
+        <div class="funnel-visual-card" style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+                <h3 style="margin:0;">👥 코호트별 활동 참여율</h3>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <label style="font-size:13px;color:var(--text-dim);">코호트 기준:</label>
+                    <select id="cohort-type-select" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:13px;">
+                        <option value="grade">등급별</option>
+                        <option value="join_year">가입연도별</option>
+                    </select>
+                    <label style="font-size:13px;color:var(--text-dim);">활동:</label>
+                    <select id="cohort-activity-select" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:13px;"></select>
+                </div>
+            </div>
+            <canvas id="chart-cohort-group" height="90"></canvas>
+        </div>
+
+        <!-- 코호트 × 활동 히트맵 (최신일 기준) -->
+        <div class="funnel-visual-card" style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+                <h3 style="margin:0;">🗓️ 코호트 × 활동 참여율 히트맵 <span id="cohort-heatmap-date" style="font-weight:400;font-size:13px;color:var(--text-dim);"></span></h3>
+                <select id="cohort-heatmap-type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:13px;">
+                    <option value="grade">등급별</option>
+                    <option value="join_year">가입연도별</option>
+                </select>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="data-table" id="cohort-heatmap-table"></table>
+            </div>
+        </div>
+
+        <!-- 등급별 일별 이탈률 추이 -->
+        <div class="funnel-visual-card">
+            <h3>📉 등급별 일별 이탈률 추이 <span id="cohort-churn-latest-label" style="font-weight:400;font-size:13px;color:var(--text-dim);"></span></h3>
+            <p style="font-size:12px;color:var(--text-dim);margin:-8px 0 12px;">각 등급 내 고유 ID 기준 — 전일 있었고 당일 없는 유저 비율</p>
+            <canvas id="chart-cohort-churn-grade" height="110"></canvas>
+        </div>
+
+    </div>
+
+    <!-- TAB: GA -->
+    <div class="tab-content" id="tab-ga">
+        <div id="ga-no-data" style="display:none;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:32px;text-align:center;margin-bottom:20px;">
+            <div style="font-size:32px;margin-bottom:12px;">📡</div>
+            <div style="font-weight:600;font-size:16px;margin-bottom:8px;">GA BigQuery 데이터 없음</div>
+            <div style="color:var(--text-dim);font-size:13px;line-height:1.8;">
+                GA4 BigQuery Export는 연결 <b>다음날</b>부터 데이터가 쌓입니다.<br>
+                데이터가 쌓인 후 아래 순서로 실행하면 이 탭이 채워집니다.<br><br>
+                <code style="background:#0f172a;padding:4px 10px;border-radius:4px;">python bq_fetch.py</code>
+                &nbsp;→&nbsp;
+                <code style="background:#0f172a;padding:4px 10px;border-radius:4px;">python process_data.py</code>
+                &nbsp;→&nbsp;
+                <code style="background:#0f172a;padding:4px 10px;border-radius:4px;">netlify deploy --prod --dir .</code>
+            </div>
+        </div>
+
+        <div id="ga-content">
+            <!-- 포인트 전환 GA vs 실제 괴리 안내 (최상단) -->
+            <div style="background:#1c1a10;border:1px solid #ca8a04;border-left:4px solid #eab308;border-radius:8px;padding:14px 18px;margin-bottom:16px;font-size:13px;line-height:1.8;">
+                <div style="font-weight:700;color:#fbbf24;margin-bottom:8px;">⚠️ GA 포인트 전환 수치는 실제보다 크게 낮게 잡힙니다</div>
+                <div style="color:#d4c48a;">
+                    실제 관리자 데이터(OK캐쉬백·네이버페이·L포인트 등)와 비교 시 <b style="color:#fbbf24;">GA 집계는 실제 전환의 약 25~30% 수준</b>으로 추정됩니다. 주요 원인은 다음과 같습니다.
+                </div>
+                <ul style="color:#b5a77a;margin:8px 0 0 16px;font-size:12px;line-height:1.9;">
+                    <li><b style="color:#e2e8f0;">배치·서버 처리 전환 미수집</b> — 배치차감·퀴즈이벤트 등 서버사이드로 발생하는 전환은 GA 클라이언트 이벤트가 발화하지 않습니다.</li>
+                    <li><b style="color:#e2e8f0;">앱 세션 비활성 상태 전환</b> — 전환 완료 시점에 앱이 백그라운드이거나 네트워크 단절 시 이벤트 유실이 발생할 수 있습니다.</li>
+                    <li><b style="color:#e2e8f0;">GA 추적 동의 미완료 유저</b> — 개인정보 동의를 거부하거나 추적 차단 환경의 유저는 GA에 기록되지 않습니다.</li>
+                    <li><b style="color:#e2e8f0;">활성 세션 조건</b> — GA는 해당 기간 내 앱/웹을 <u>직접 방문한</u> 유저의 이벤트만 수집하므로, 세션 없이 전환만 발생한 케이스는 누락됩니다.</li>
+                </ul>
+                <div style="margin-top:10px;font-size:11px;color:#8a7e5a;">
+                    → GA 포인트 전환 데이터는 <b style="color:#fbbf24;">패턴·파트너별 비중 분석</b>에 활용하고, 절대 금액·건수는 관리자 시스템 데이터를 기준으로 사용하세요.
+                </div>
+            </div>
+
+            <!-- GA 데이터 출처 배너 -->
+            <div id="ga-source-banner" style="background:#1e3050;border:1px solid #3b82f6;border-radius:8px;padding:10px 18px;margin-bottom:16px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:16px;flex-wrap:wrap;"></div>
+
+            <!-- KPI row -->
+            <div class="kpi-grid" id="ga-kpis"></div>
+
+            <!-- 일별 참여자 추이 -->
+            <div class="funnel-visual-card" style="margin-bottom:16px;">
+                <h3>📈 이벤트별 일별 참여자 수 추이</h3>
+                <canvas id="chart-ga-daily-users" height="80"></canvas>
+            </div>
+
+            <!-- 이벤트별 건수 + 포인트 전환 타입 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div class="funnel-visual-card">
+                    <h3>🎯 이벤트별 총 건수</h3>
+                    <canvas id="chart-ga-total-events" height="150"></canvas>
+                </div>
+                <div class="funnel-visual-card">
+                    <h3>💰 포인트 전환 타입별 분포</h3>
+                    <canvas id="chart-ga-conversion-type" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- 포인트 전환 금액 추이 -->
+            <div class="funnel-visual-card" style="margin-bottom:16px;">
+                <h3>💳 포인트 전환액 일별 추이 <span style="font-size:11px;font-weight:400;color:#ca8a04;">⚠️ GA 집계 기준 (실제보다 낮음)</span></h3>
+                <canvas id="chart-ga-conversion-amount" height="80"></canvas>
+            </div>
+
+            <!-- 파트너별 분석 섹션 -->
+            <div class="funnel-visual-card" style="margin-bottom:16px;">
+                <h3>🏦 포인트 전환 파트너별 분석</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:12px;">
+                    <div>
+                        <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px;">전체 기간 전환 건수 비중</p>
+                        <canvas id="chart-ga-partner-count-donut" height="200"></canvas>
+                    </div>
+                    <div>
+                        <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px;">전체 기간 전환액 비중</p>
+                        <canvas id="chart-ga-partner-amount-donut" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div class="funnel-visual-card">
+                    <h3>📊 파트너별 일별 전환 건수</h3>
+                    <canvas id="chart-ga-partner-daily-count" height="150"></canvas>
+                </div>
+                <div class="funnel-visual-card">
+                    <h3>💰 파트너별 일별 전환액</h3>
+                    <canvas id="chart-ga-partner-daily-amount" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- 파트너별 상세 테이블 -->
+            <div class="funnel-visual-card" style="margin-bottom:16px;">
+                <h3>📋 파트너별 전환 상세 <span style="font-size:11px;font-weight:400;color:#ca8a04;">⚠️ GA 집계 기준 (실제 건수·금액과 다를 수 있음)</span></h3>
+                <div style="overflow-x:auto;">
+                    <table class="data-table" id="ga-partner-table">
+                        <thead id="ga-partner-thead"></thead>
+                        <tbody id="ga-partner-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 일별 상세 테이블 -->
+            <div class="funnel-visual-card">
+                <h3>📋 일별 이벤트 상세 수치</h3>
+                <div style="overflow-x:auto;">
+                    <table class="data-table" id="ga-daily-table">
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>투표 참여자</th>
+                                <th>서베이 참여자</th>
+                                <th>퀵서베이 참여자</th>
+                                <th>포인트 전환자</th>
+                                <th>전환액 합계</th>
+                                <th>인당 전환액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ga-daily-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: JOIN -->
+    <div class="tab-content" id="tab-join">
+        <div id="join-no-data" style="display:none;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:32px;text-align:center;">
+            <div style="font-size:32px;margin-bottom:12px;">🔗</div>
+            <div style="font-weight:600;font-size:16px;margin-bottom:8px;">JOIN 데이터 없음</div>
+            <div style="color:var(--text-dim);font-size:13px;">python bq_fetch.py --mode all 실행 후 python process_data.py 재실행</div>
+        </div>
+        <div id="join-content">
+            <!-- 매칭 현황 배너 -->
+            <div id="join-match-banner" style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:10px;"></div>
+
+            <!-- 등급별 전환 KPI -->
+            <div class="kpi-grid" id="join-kpis"></div>
+
+            <!-- 등급 × 파트너 히트맵 -->
+            <div class="funnel-visual-card" style="margin-bottom:16px;">
+                <h3>🏦 등급 × 파트너별 포인트 전환 히트맵</h3>
+                <p style="font-size:12px;color:var(--text-dim);margin:-8px 0 12px;">각 셀: 전환 건수 (괄호 안: 전환액)</p>
+                <div style="overflow-x:auto;"><table class="data-table" id="join-grade-partner-table"></table></div>
+            </div>
+
+            <!-- 등급별 전환 건수 + 인당 평균액 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div class="funnel-visual-card">
+                    <h3>📊 등급별 전환 건수</h3>
+                    <canvas id="chart-join-grade-events" height="150"></canvas>
+                </div>
+                <div class="funnel-visual-card">
+                    <h3>💰 등급별 인당 평균 전환액</h3>
+                    <canvas id="chart-join-grade-avg" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- 연령대별 이벤트 참여 -->
+            <div class="funnel-visual-card" style="margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                    <h3 style="margin:0;">👥 연령대별 이벤트 참여</h3>
+                    <select id="join-age-event-select" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:6px;font-size:13px;">
+                        <option value="poll_success">투표 참여</option>
+                        <option value="survey_success">서베이 참여</option>
+                        <option value="quick_survey_success">퀵서베이 참여</option>
+                        <option value="point_conversion">포인트 전환</option>
+                    </select>
+                </div>
+                <canvas id="chart-join-age-events" height="100"></canvas>
+            </div>
+
+            <!-- 성별 × 이벤트 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div class="funnel-visual-card">
+                    <h3>⚧ 성별 × 이벤트 참여자 수</h3>
+                    <canvas id="chart-join-sex-events" height="150"></canvas>
+                </div>
+                <div class="funnel-visual-card">
+                    <h3>🗺️ 지역별 포인트 전환 건수 (Top 10)</h3>
+                    <canvas id="chart-join-region-conv" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: Trend -->
+    <div class="tab-content" id="tab-trend">
+        <div class="trend-note">
+            현재 1일치 스냅샷 데이터가 있습니다. <code>user_state-YYMMDD.xlsx</code> 파일이 추가될수록 아래 트렌드 차트가 자동으로 채워집니다.<br>
+            업데이트: <code>python process_data.py</code> 실행 후 새로고침
+        </div>
+        <div class="chart-grid">
+            <div class="chart-card full"><h3>활성 회원 수 추이</h3><canvas id="chart-trend-users"></canvas></div>
+            <div class="chart-card"><h3>당일 활성률 추이</h3><canvas id="chart-trend-active"></canvas></div>
+            <div class="chart-card"><h3>일별 신규 전환자 수 <span style="font-size:11px;font-weight:400;color:var(--text-dim);">(전일 대비 순증)</span></h3><canvas id="chart-trend-conversion"></canvas></div>
+            <div class="chart-card"><h3>일별 포인트 전환 증분 <span style="font-size:11px;font-weight:400;color:var(--text-dim);">(P, 전일 대비 순증)</span></h3><canvas id="chart-trend-point"></canvas></div>
+            <div class="chart-card"><h3>이번달 누적 평균 출석일수 추이 <span style="font-size:11px;font-weight:400;color:var(--text-dim);">(월초부터 누적 평균)</span></h3><canvas id="chart-trend-attendance"></canvas></div>
+            <div class="chart-card"><h3>일별 출석 회원 수 추이</h3><canvas id="chart-trend-daily-active"></canvas></div>
+        </div>
+    </div>
+
+    <!-- TAB: Full Member -->
+    <div class="tab-content" id="tab-fullmember">
+        <div id="fullmember-content">
+            <div style="color:#64748b;padding:40px;text-align:center;">전체 회원 데이터를 불러오는 중...</div>
+        </div>
+    </div>
+
+    <script>
+    Chart.defaults.color = '#8b8d97';
+    Chart.defaults.borderColor = '#2a2d3a';
+    Chart.defaults.font.family = "'Segoe UI', sans-serif";
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    Chart.defaults.plugins.legend.labels.padding = 12;
+
+    const C = ['#6366f1','#22c55e','#f97316','#3b82f6','#ec4899','#a855f7','#eab308','#14b8a6','#ef4444','#8b5cf6'];
+    let DATA = null;
+    const charts = {};
+
+    function num(n) {
+        if (n === null || n === undefined || isNaN(n)) return '-';
+        if (n >= 1e8) return (n / 1e8).toFixed(1) + '억';
+        if (n >= 1e4) return (n / 1e4).toFixed(1) + '만';
+        if (n >= 1e3) return n.toLocaleString();
+        return String(n);
+    }
+    function pct(n) { return (n || 0).toFixed(1) + '%'; }
+
+    function kpi(label, value, sub, change) {
+        let ch = '';
+        if (change !== undefined && change !== null) {
+            const cls = change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
+            const arrow = change > 0 ? '↑' : change < 0 ? '↓' : '→';
+            ch = `<div class="change ${cls}">${arrow} ${Math.abs(change).toFixed(1)}% vs 전일</div>`;
+        }
+        return `<div class="kpi-card"><div class="label">${label}</div><div class="value">${value}</div>${sub?`<div class="sub">${sub}</div>`:''}${ch}</div>`;
+    }
+
+    function chg(arr, key, idx) {
+        if (idx <= 0 || !arr[idx-1]) return null;
+        const prev = arr[idx-1][key];
+        return prev ? ((arr[idx][key] - prev) / prev * 100) : null;
+    }
+
+    // 누적값 → 일별 발생량 변환 (전일 대비 순증)
+    function dailyDelta(arr, getter) {
+        return arr.map((d, i) => {
+            if (i === 0) return null;
+            const curr = getter(d) ?? 0;
+            const prev = getter(arr[i - 1]) ?? 0;
+            return Math.max(0, curr - prev);
+        });
+    }
+
+    function chart(id, cfg) {
+        if (charts[id]) charts[id].destroy();
+        const el = document.getElementById(id);
+        if (el) charts[id] = new Chart(el, cfg);
+    }
+
+    function renderOverview() {
+        const us = DATA.user_state_kpis;
+        const d = us[us.length - 1];
+        const i = us.length - 1;
+
+        let h = '';
+        h += kpi('활성 회원 수', num(d.total_users), `스냅샷: ${d.date}`, chg(us,'total_users',i));
+        h += kpi('당일 활성 회원', num(d.active_this_month), pct(d.active_rate) + ' 당일 활성률', chg(us,'active_this_month',i));
+        h += kpi('포인트 전환률', pct(d.conversion_rate), `전환자 ${num(d.users_with_conversion)}명`, chg(us,'conversion_rate',i));
+        h += kpi('총 포인트 전환액', num(d.total_point_conversion) + 'P', `인당 평균 ${num(d.avg_point_per_converter)}P`, chg(us,'total_point_conversion',i));
+        h += kpi('광고 참여 (비디오)', num(d.ad_engagement.video_users) + '명', `총 ${num(d.ad_engagement.video_total)}회`);
+        h += kpi('댓글 활동 회원', num(d.comment_users) + '명', `공유 ${num(d.share_users)}명`);
+        h += kpi('평균 출석 (이번달)', d.avg_attendance_month + '일', `올해 누적 ${d.avg_attendance_year}일`);
+        h += kpi('이벤트 당첨자', num(d.event_winners) + '명', '이번 달');
+        document.getElementById('overview-kpis').innerHTML = h;
+
+        // ── 일별 변화 인사이트 (2일 이상 데이터 있을 때만)
+        if (us.length >= 2) {
+            const prev = us[us.length - 2];
+            const insights = [];
+            const diff = (key) => d[key] - prev[key];
+            const diffPct = (key) => prev[key] > 0 ? ((d[key] - prev[key]) / prev[key] * 100).toFixed(1) : null;
+
+            // 회원 수 변화
+            const userDiff = diff('total_users');
+            if (userDiff !== 0)
+                insights.push({ color: userDiff > 0 ? '#22c55e' : '#ef4444',
+                    text: `활성 회원 수가 전일 대비 <b>${userDiff > 0 ? '+' : ''}${userDiff.toLocaleString()}명</b> (${d.date} 기준 ${d.total_users.toLocaleString()}명 · 로그인/포인트변경 기준)` });
+
+            // 활성률 변화
+            const actDiff = (d.active_rate - prev.active_rate).toFixed(1);
+            if (Math.abs(actDiff) >= 0.1)
+                insights.push({ color: actDiff > 0 ? '#22c55e' : '#f97316',
+                    text: `당일 활성률 <b>${actDiff > 0 ? '+' : ''}${actDiff}%p</b> 변화 (${prev.active_rate}% → ${d.active_rate}%)` });
+
+            // 전환률 변화
+            const convDiff = (d.conversion_rate - prev.conversion_rate).toFixed(2);
+            if (Math.abs(convDiff) >= 0.01)
+                insights.push({ color: convDiff > 0 ? '#22c55e' : '#ef4444',
+                    text: `포인트 전환률 <b>${convDiff > 0 ? '+' : ''}${convDiff}%p</b> 변화 (${prev.conversion_rate}% → ${d.conversion_rate}%)` });
+
+            // 총 전환액 변화
+            const ptDiff = diff('total_point_conversion');
+            const ptDiffPct = diffPct('total_point_conversion');
+            if (ptDiff !== 0)
+                insights.push({ color: ptDiff > 0 ? '#22c55e' : '#ef4444',
+                    text: `총 포인트 전환액 <b>${ptDiff > 0 ? '+' : ''}${ptDiff.toLocaleString()}P</b> (${ptDiffPct !== null ? (ptDiff > 0 ? '+' : '') + ptDiffPct + '%' : ''})` });
+
+            // 광고 비디오 참여자 변화
+            const vidDiff = d.ad_engagement.video_users - prev.ad_engagement.video_users;
+            if (vidDiff !== 0)
+                insights.push({ color: vidDiff > 0 ? '#3b82f6' : '#f97316',
+                    text: `광고 비디오 참여자 <b>${vidDiff > 0 ? '+' : ''}${vidDiff.toLocaleString()}명</b> 변화` });
+
+            // 평균 출석일 변화
+            const attDiff = (d.avg_attendance_month - prev.avg_attendance_month).toFixed(1);
+            if (Math.abs(attDiff) >= 0.1)
+                insights.push({ color: attDiff > 0 ? '#22c55e' : '#f97316',
+                    text: `평균 출석일 <b>${attDiff > 0 ? '+' : ''}${attDiff}일</b> 변화 (${prev.avg_attendance_month}일 → ${d.avg_attendance_month}일)` });
+
+            // 퍼널: 7일 이내 전환자 변화
+            if (d.funnel && prev.funnel) {
+                const f7Diff = d.funnel.step_7d - prev.funnel.step_7d;
+                if (f7Diff !== 0)
+                    insights.push({ color: f7Diff > 0 ? '#22c55e' : '#ef4444',
+                        text: `7일 이내 전환자 <b>${f7Diff > 0 ? '+' : ''}${f7Diff.toLocaleString()}명</b> 변화` });
+
+                const reactDiff = d.funnel.reactive_target - prev.funnel.reactive_target;
+                if (reactDiff !== 0)
+                    insights.push({ color: reactDiff > 0 ? '#ef4444' : '#22c55e',
+                        text: `재활성화 타겟(활성&30일+미전환) <b>${reactDiff > 0 ? '+' : ''}${reactDiff.toLocaleString()}명</b> — ${reactDiff > 0 ? '전환 넛지 대상 증가' : '전환 유도 개선'}` });
+            }
+
+            if (insights.length > 0) {
+                const wrap = document.getElementById('overview-insights-wrap');
+                wrap.style.display = '';
+                document.getElementById('overview-insights-list').innerHTML = insights.map(ins =>
+                    `<div class="insight-item"><div class="insight-dot" style="background:${ins.color}"></div><span>${ins.text}</span></div>`
+                ).join('');
+            }
+        }
+
+        // Grade
+        const gradeOrder = ['Welcome','Close','Good','Best','Soul'];
+        const gradeColors = ['#94a3b8','#fca5a5','#86efac','#fdba74','#c4b5fd'];
+        const gl = gradeOrder.filter(g => d.grade_dist[g]);
+        chart('chart-grade', {
+            type: 'doughnut',
+            data: { labels: gl, datasets: [{ data: gl.map(g => d.grade_dist[g]), backgroundColor: gradeColors.slice(0, gl.length) }] },
+            options: { responsive: true, plugins: { legend: { position: 'right' } } }
+        });
+
+        // Noti
+        const notiMap = { email:'이메일', event:'이벤트(광고)', survey:'설문(광고)', kakao:'알림톡', sms:'SMS' };
+        chart('chart-noti', {
+            type: 'bar',
+            data: {
+                labels: Object.keys(d.noti_rates).map(k => notiMap[k]||k),
+                datasets: [{ data: Object.values(d.noti_rates), backgroundColor: C.slice(0,5).map(c=>c+'80'), borderColor: C.slice(0,5), borderWidth:1 }]
+            },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{max:100, ticks:{callback:v=>v+'%'}}} }
+        });
+
+        // Point dist
+        const pl = Object.keys(d.point_dist), pv = Object.values(d.point_dist);
+        chart('chart-point-dist', {
+            type: 'bar',
+            data: { labels: pl, datasets: [{ data: pv, backgroundColor: C.slice(0,pl.length).map(c=>c+'80'), borderColor: C.slice(0,pl.length), borderWidth:1 }] },
+            options: { responsive:true, plugins:{legend:{display:false}} }
+        });
+
+        // Ad type
+        const ae = d.ad_engagement;
+        chart('chart-ad-type', {
+            type: 'bar',
+            data: {
+                labels: ['링크','스크래치','비디오'],
+                datasets: [
+                    { label:'참여자 수', data:[ae.link_users, ae.scratch_users, ae.video_users], backgroundColor:C[0]+'80', borderColor:C[0], borderWidth:1 },
+                    { label:'총 횟수', data:[ae.link_total, ae.scratch_total, ae.video_total], backgroundColor:C[1]+'80', borderColor:C[1], borderWidth:1 },
+                ]
+            },
+            options: { responsive:true }
+        });
+    }
+
+    function renderEngagement() {
+        const d = DATA.user_state_kpis[DATA.user_state_kpis.length - 1];
+        const ae = d.ad_engagement;
+
+        let h = '';
+        h += kpi('출석 참여 (월평균)', d.avg_attendance_month + '일', '이번 달');
+        h += kpi('출석 참여 (연평균)', d.avg_attendance_year + '일', '올해 누적');
+        h += kpi('댓글 활동 회원', num(d.comment_users), `전체의 ${(d.comment_users/d.total_users*100).toFixed(1)}%`);
+        h += kpi('공유 활동 회원', num(d.share_users), `전체의 ${(d.share_users/d.total_users*100).toFixed(1)}%`);
+        h += kpi('광고 참여자 (링크)', num(ae.link_users), `인당 ${(ae.link_total/Math.max(ae.link_users,1)).toFixed(1)}회`);
+        h += kpi('광고 참여자 (스크래치)', num(ae.scratch_users), `인당 ${(ae.scratch_total/Math.max(ae.scratch_users,1)).toFixed(1)}회`);
+        document.getElementById('engage-kpis').innerHTML = h;
+
+        // Ad detail
+        chart('chart-ad-detail', {
+            type: 'bar',
+            data: {
+                labels: ['링크','스크래치','비디오'],
+                datasets: [
+                    { label:'참여자', data:[ae.link_users, ae.scratch_users, ae.video_users], backgroundColor:C[0]+'80' },
+                    { label:'총 횟수', data:[ae.link_total, ae.scratch_total, ae.video_total], backgroundColor:C[2]+'80' },
+                ]
+            },
+            options: { responsive:true }
+        });
+
+        // Attendance distribution
+        chart('chart-attendance-dist', {
+            type: 'bar',
+            data: {
+                labels: Object.keys(d.attendance_dist || {}),
+                datasets: [{ data: Object.values(d.attendance_dist || {}), backgroundColor: C[3]+'80', borderColor:C[3], borderWidth:1 }]
+            },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{x:{title:{display:true,text:'출석일수'}}, y:{title:{display:true,text:'회원 수'}}} }
+        });
+
+        // Engagement funnel
+        chart('chart-engage-funnel', {
+            type: 'bar',
+            data: {
+                labels: ['당일 활성','댓글 활동','공유 활동','이벤트 당첨'],
+                datasets: [{
+                    data: [d.active_this_month, d.comment_users, d.share_users, d.event_winners],
+                    backgroundColor: [C[0]+'80', C[1]+'80', C[2]+'80', C[4]+'80'],
+                    borderColor: [C[0], C[1], C[2], C[4]],
+                    borderWidth: 1,
+                }]
+            },
+            options: { responsive:true, indexAxis:'y', plugins:{legend:{display:false}} }
+        });
+
+        // Event wins
+        chart('chart-event-win', {
+            type: 'doughnut',
+            data: {
+                labels: ['이번달 당첨자','올해 당첨자(누적)','미당첨 활성회원'],
+                datasets: [{
+                    data: [d.event_winners, d.event_winners_year || 0, d.active_this_month - d.event_winners],
+                    backgroundColor: [C[4], C[5], '#333']
+                }]
+            },
+            options: { responsive:true, plugins:{legend:{position:'right'}} }
+        });
+    }
+
+    function renderMonetization() {
+        const d = DATA.user_state_kpis[DATA.user_state_kpis.length - 1];
+
+        let h = '';
+        h += kpi('포인트 전환률', pct(d.conversion_rate), `전환자 ${num(d.users_with_conversion)} / 총 ${num(d.total_users)}`);
+        h += kpi('총 전환액 (올해)', num(d.total_point_conversion) + 'P', '누적');
+        h += kpi('인당 평균 전환액', num(d.avg_point_per_converter) + 'P', '전환자 기준');
+        h += kpi('미전환 회원', num(d.total_users - d.users_with_conversion) + '명', pct((d.total_users - d.users_with_conversion)/d.total_users*100) + ' 비율');
+        document.getElementById('money-kpis').innerHTML = h;
+
+        // Point segment
+        const pl = Object.keys(d.point_dist), pv = Object.values(d.point_dist);
+        chart('chart-point-segment', {
+            type: 'bar',
+            data: { labels: pl, datasets: [{ data: pv, backgroundColor: C.slice(0,pl.length).map(c=>c+'80'), borderColor: C.slice(0,pl.length), borderWidth:1 }] },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{title:{display:true,text:'회원 수'}}} }
+        });
+
+        // Grade x Point
+        if (d.grade_point_avg) {
+            const grades = Object.keys(d.grade_point_avg);
+            chart('chart-grade-point', {
+                type: 'bar',
+                data: {
+                    labels: grades,
+                    datasets: [{ label:'평균 전환액(P)', data: grades.map(g => d.grade_point_avg[g]), backgroundColor: ['#94a3b8','#fca5a5','#86efac','#fdba74','#c4b5fd'].slice(0,grades.length).map(c=>c+'cc') }]
+                },
+                options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{title:{display:true,text:'포인트'}}} }
+            });
+        }
+    }
+
+    function renderDemographics() {
+        const d = DATA.user_state_kpis[DATA.user_state_kpis.length - 1];
+
+        chart('chart-sex', {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(d.sex_dist).map(k => k==='F'?'여성':k==='M'?'남성':'미설정'),
+                datasets: [{ data: Object.values(d.sex_dist), backgroundColor: [C[4], C[3], '#555'] }]
+            },
+            options: { responsive:true, plugins:{legend:{position:'right'}} }
+        });
+
+        chart('chart-age', {
+            type: 'bar',
+            data: {
+                labels: Object.keys(d.age_dist),
+                datasets: [{ data: Object.values(d.age_dist), backgroundColor: C.slice(0,6).map(c=>c+'80'), borderColor: C.slice(0,6), borderWidth:1 }]
+            },
+            options: { responsive:true, plugins:{legend:{display:false}} }
+        });
+
+        chart('chart-region', {
+            type: 'bar',
+            data: {
+                labels: Object.keys(d.region_dist),
+                datasets: [{ data: Object.values(d.region_dist), backgroundColor: C[0]+'80', borderColor: C[0], borderWidth:1 }]
+            },
+            options: { responsive:true, indexAxis:'y', plugins:{legend:{display:false}} }
+        });
+
+        chart('chart-cohort', {
+            type: 'bar',
+            data: {
+                labels: Object.keys(d.join_cohort),
+                datasets: [{ data: Object.values(d.join_cohort), backgroundColor: C[5]+'80', borderColor: C[5], borderWidth:1 }]
+            },
+            options: { responsive:true, plugins:{legend:{display:false}} }
+        });
+
+        // Grade change table
+        const tbody = document.querySelector('#grade-change-table tbody');
+        const total = Object.values(d.grade_change).reduce((a,b) => a+b, 0);
+        tbody.innerHTML = Object.entries(d.grade_change).map(([k,v]) => {
+            const [from,to] = k.split('→');
+            const bc = g => g ? g.toLowerCase() : '';
+            return `<tr><td><span class="badge ${bc(from)}">${from}</span> → <span class="badge ${bc(to)}">${to}</span></td><td>${v.toLocaleString()}</td><td>${(v/total*100).toFixed(1)}%</td></tr>`;
+        }).join('');
+    }
+
+    function renderFunnel() {
+        const d = DATA.user_state_kpis[DATA.user_state_kpis.length - 1];
+        const f = d.funnel;
+        if (!f) return;
+
+        // ── KPI cards
+        const reactive = f.reactive_target;
+        let fh = '';
+        fh += kpi('7일 이내 전환자', num(f.step_7d) + '명', pct(f.step_7d / d.total_users * 100) + ' of 전체');
+        fh += kpi('30일 이내 전환자', num(f.step_30d) + '명', pct(f.step_30d / d.total_users * 100) + ' of 전체');
+        fh += kpi('올해 전환 경험자', num(f.step_ever) + '명', pct(f.step_ever / d.total_users * 100) + ' of 전체');
+        fh += kpi('재활성화 타겟', num(reactive) + '명', '활성 & 30일+ 미전환');
+        document.getElementById('funnel-kpis').innerHTML = fh;
+
+        // ── Visual Funnel
+        const FUNNEL_COLORS = [
+            'linear-gradient(135deg,#6366f1,#818cf8)',
+            'linear-gradient(135deg,#3b82f6,#60a5fa)',
+            'linear-gradient(135deg,#14b8a6,#2dd4bf)',
+            'linear-gradient(135deg,#22c55e,#4ade80)',
+            'linear-gradient(135deg,#eab308,#fbbf24)',
+            'linear-gradient(135deg,#f97316,#fb923c)',
+        ];
+        const FUNNEL_SOLID = ['#6366f1','#3b82f6','#14b8a6','#22c55e','#eab308','#f97316'];
+
+        const container = document.getElementById('funnel-steps-container');
+        container.innerHTML = '';
+        const steps = f.steps;
+        const maxCount = steps[0].count;
+
+        steps.forEach((step, i) => {
+            const widthPct = Math.max(step.rate, 12); // min 12% width for visibility
+            const row = document.createElement('div');
+            row.className = 'funnel-step-row';
+
+            // Bar
+            const barWrap = document.createElement('div');
+            barWrap.className = 'funnel-bar-wrap';
+            const bar = document.createElement('div');
+            bar.className = 'funnel-bar';
+            bar.style.cssText = `width:${widthPct}%;background:${FUNNEL_COLORS[i]};min-width:160px;`;
+            bar.innerHTML = `
+                <span class="f-label">${step.label}</span>
+                <span style="display:flex;align-items:center;gap:4px;">
+                    <span class="f-count">${step.count.toLocaleString()}</span>
+                    <span class="f-pct">(${step.rate}%)</span>
+                </span>`;
+            barWrap.appendChild(bar);
+            row.appendChild(barWrap);
+
+            // Drop-off row (between steps)
+            if (i < steps.length - 1) {
+                const dropRow = document.createElement('div');
+                dropRow.className = 'funnel-drop';
+                const nextCount = steps[i + 1].count;
+                const lost = step.count - nextCount;
+                const lostPct = step.count > 0 ? (lost / step.count * 100).toFixed(1) : 0;
+                const isIncrease = nextCount > step.count;
+                dropRow.innerHTML = isIncrease
+                    ? `<span class="drop-arrow">↑</span><span style="color:#22c55e;font-weight:600;">+${Math.abs(lostPct)}% 증가</span>`
+                    : `<span class="drop-arrow">↓</span><span class="drop-num">-${lostPct}% 이탈</span><span class="drop-abs">(${lost.toLocaleString()}명)</span>`;
+                row.appendChild(dropRow);
+            }
+
+            container.appendChild(row);
+        });
+
+        // ── Recency Distribution Chart
+        const rd = f.recency_dist;
+        const recencyColors = ['#22c55e','#84cc16','#eab308','#f97316','#ef4444','#6b7280'];
+        chart('chart-recency-dist', {
+            type: 'bar',
+            data: {
+                labels: Object.keys(rd),
+                datasets: [{
+                    label: '회원 수',
+                    data: Object.values(rd),
+                    backgroundColor: recencyColors.map(c => c + 'bb'),
+                    borderColor: recencyColors,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { title: { display: true, text: '마지막 전환 경과일' } },
+                    y: { title: { display: true, text: '회원 수' } }
+                }
+            }
+        });
+
+        // ── Grade Recency Avg Chart
+        const gr = f.grade_recency_avg;
+        const gradeOrder = ['Welcome','Good','Best','Soul','Close'];
+        const gradeColors2 = { Welcome:'#94a3b8', Good:'#86efac', Best:'#fdba74', Soul:'#c4b5fd', Close:'#fca5a5' };
+        const gradeLabels = gradeOrder.filter(g => gr[g] !== undefined);
+        chart('chart-grade-recency', {
+            type: 'bar',
+            data: {
+                labels: gradeLabels,
+                datasets: [{
+                    label: '평균 경과일',
+                    data: gradeLabels.map(g => gr[g]),
+                    backgroundColor: gradeLabels.map(g => (gradeColors2[g] || '#6366f1') + 'aa'),
+                    borderColor: gradeLabels.map(g => gradeColors2[g] || '#6366f1'),
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { title: { display: true, text: '일(day)' }, beginAtZero: true }
+                }
+            }
+        });
+
+        // ── Insights
+        const totalUsers = d.total_users;
+        const never = rd['미전환'] || 0;
+        const recent7 = rd['7일 이내'] || 0;
+        const stale91 = (rd['91~180일'] || 0) + (rd['180일+'] || 0);
+        const insights = [];
+
+        const biggestDrop = steps.reduce((max, s, i) => {
+            if (i === 0) return max;
+            const prev = steps[i-1].count;
+            const pct = (prev - s.count) / prev * 100;
+            return (pct > max.pct && s.count < prev) ? { label: s.label, pct: pct.toFixed(1), i } : max;
+        }, { label:'', pct: -Infinity });
+
+        if (biggestDrop.label) insights.push({ color:'#ef4444', text:`최대 이탈 구간은 <b>${steps[biggestDrop.i-1].label} → ${biggestDrop.label}</b> (${biggestDrop.pct}% 이탈)` });
+        insights.push({ color:'#22c55e', text:`활성 회원의 <b>${(recent7/totalUsers*100).toFixed(1)}%</b> (${recent7.toLocaleString()}명)가 최근 7일 이내 전환` });
+        if (never > 0) insights.push({ color:'#f97316', text:`<b>${never.toLocaleString()}명</b>이 포인트 전환 이력 없음 → 첫 전환 유도 캠페인 대상` });
+        if (stale91 > 0) insights.push({ color:'#eab308', text:`<b>${stale91.toLocaleString()}명</b>이 91일 이상 미전환 → 휴면 전환 리마인드 대상` });
+        if (reactive > 0) insights.push({ color:'#3b82f6', text:`활성 회원 중 <b>${reactive.toLocaleString()}명</b>이 30일+ 미전환 → 전환 넛지 타겟` });
+        else insights.push({ color:'#6366f1', text:`활성 회원 대부분이 30일 이내 전환 완료 — 전환 리텐션 양호` });
+
+        document.getElementById('funnel-insights-list').innerHTML = insights.map(ins =>
+            `<div class="insight-item"><div class="insight-dot" style="background:${ins.color}"></div><span>${ins.text}</span></div>`
+        ).join('');
+
+        // ── 일별 퍼널 추이 ─────────────────────────────────────────
+        const us = DATA.user_state_kpis.filter(d => d.active_this_month > 0);
+        const dates = us.map(d => d.date);
+        const stepLabels = f.steps.map(s => s.label);
+        const FUNNEL_LINE_COLORS = ['#6366f1','#3b82f6','#14b8a6','#22c55e','#eab308','#f97316'];
+
+        // 1) 단계별 전환률(%) 라인 차트
+        const rateDatasets = stepLabels.map((lbl, si) => ({
+            label: lbl,
+            data: us.map(day => day.funnel && day.funnel.steps[si] ? day.funnel.steps[si].rate : null),
+            borderColor: FUNNEL_LINE_COLORS[si],
+            backgroundColor: FUNNEL_LINE_COLORS[si] + '18',
+            fill: si === 0 ? false : false,
+            tension: 0.3,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            borderWidth: 2,
+        }));
+        chart('chart-funnel-daily-rate', {
+            type: 'line',
+            data: { labels: dates, datasets: rateDatasets },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` }
+                    }
+                },
+                scales: {
+                    y: {
+                        title: { display: true, text: '전체 대비 비율 (%)' },
+                        min: 0, max: 100,
+                        ticks: { callback: v => v + '%' }
+                    }
+                }
+            }
+        });
+
+        // 2) 단계별 인원 수 그룹 막대 차트 (날짜 × 단계)
+        const countDatasets = stepLabels.map((lbl, si) => ({
+            label: lbl,
+            data: us.map(day => day.funnel && day.funnel.steps[si] ? day.funnel.steps[si].count : null),
+            backgroundColor: FUNNEL_LINE_COLORS[si] + 'aa',
+            borderColor: FUNNEL_LINE_COLORS[si],
+            borderWidth: 1,
+            borderRadius: 4,
+        }));
+        chart('chart-funnel-daily-count', {
+            type: 'bar',
+            data: { labels: dates, datasets: countDatasets },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: {
+                        title: { display: true, text: '회원 수 (명)' },
+                        ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(0)+'K' : v }
+                    }
+                }
+            }
+        });
+
+        // 3) 핵심 전환 KPI 라인 차트 (7일, 30일, 재활성화 타겟)
+        chart('chart-funnel-daily-kpi', {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: '7일 이내 전환자',
+                        data: us.map(day => day.funnel ? day.funnel.step_7d : null),
+                        borderColor: '#f97316', backgroundColor: '#f9731620',
+                        fill: true, tension: 0.3, pointRadius: 5, borderWidth: 2,
+                    },
+                    {
+                        label: '30일 이내 전환자',
+                        data: us.map(day => day.funnel ? day.funnel.step_30d : null),
+                        borderColor: '#eab308', backgroundColor: '#eab30820',
+                        fill: true, tension: 0.3, pointRadius: 5, borderWidth: 2,
+                    },
+                    {
+                        label: '재활성화 타겟',
+                        data: us.map(day => day.funnel ? day.funnel.reactive_target : null),
+                        borderColor: '#3b82f6', backgroundColor: '#3b82f620',
+                        fill: true, tension: 0.3, pointRadius: 5, borderWidth: 2,
+                        borderDash: [5, 4],
+                    },
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: {
+                        title: { display: true, text: '회원 수 (명)' },
+                        ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(1)+'K' : v }
+                    }
+                }
+            }
+        });
+
+        // 4) 누적지표 일별 증분 차트
+        const deltaConverters = dailyDelta(us, d => d.funnel ? d.funnel.step_ever : 0);
+        const deltaAmount     = dailyDelta(us, d => d.total_point_conversion || 0);
+        chart('chart-funnel-daily-delta', {
+            type: 'bar',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: '신규 전환자 수 (명)',
+                        data: deltaConverters,
+                        backgroundColor: '#22c55e80', borderColor: '#22c55e',
+                        borderWidth: 1, borderRadius: 4, yAxisID: 'y',
+                    },
+                    {
+                        type: 'line',
+                        label: '신규 전환액 (P)',
+                        data: deltaAmount,
+                        borderColor: '#f97316', backgroundColor: '#f9731618',
+                        tension: 0.3, pointRadius: 5, borderWidth: 2,
+                        yAxisID: 'y2',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y:  { position: 'left',  title: { display: true, text: '신규 전환자 (명)' }, beginAtZero: true },
+                    y2: { position: 'right', title: { display: true, text: '신규 전환액 (P)' }, beginAtZero: true,
+                          grid: { drawOnChartArea: false },
+                          ticks: { callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v } }
+                }
+            }
+        });
+
+        // 5) 일별 퍼널 수치 테이블 (포인트 전환 경험 = 누적 → 열 색상 강조 + 신규 열 추가)
+        const thead = document.getElementById('funnel-daily-thead');
+        const tbody2 = document.getElementById('funnel-daily-tbody');
+        const CUMUL_STEP_IDX = 3; // '포인트 전환 경험' — 연간 누적
+        thead.innerHTML = '<th>날짜</th>' +
+            stepLabels.map((l, si) =>
+                si === CUMUL_STEP_IDX
+                    ? `<th>${l}<br><span style="font-size:10px;color:#eab308;font-weight:400;">누적</span></th>`
+                    : `<th>${l}</th>`
+            ).join('') +
+            '<th style="color:#22c55e;">신규 전환자</th><th>7일전환</th><th>30일전환</th><th>재활성화</th>';
+        tbody2.innerHTML = us.map((day, di) => {
+            const fn = day.funnel;
+            if (!fn) return '';
+            const prevFn = di > 0 ? us[di - 1].funnel : null;
+            const newConv = prevFn ? Math.max(0, fn.step_ever - (prevFn.step_ever || 0)) : null;
+            const stepCells = fn.steps.map((s, si) => {
+                const isCumul = si === CUMUL_STEP_IDX;
+                return `<td style="${isCumul ? 'color:#eab308;' : ''}">${s.count.toLocaleString()}<span style="color:var(--text-dim);font-size:11px;"> (${s.rate}%)</span></td>`;
+            }).join('');
+            return `<tr>
+                <td style="font-weight:600;white-space:nowrap;">${day.date}</td>
+                ${stepCells}
+                <td style="color:#22c55e;font-weight:600;">${newConv !== null ? '+' + newConv.toLocaleString() : '-'}</td>
+                <td>${fn.step_7d.toLocaleString()}</td>
+                <td>${fn.step_30d.toLocaleString()}</td>
+                <td>${fn.reactive_target.toLocaleString()}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    //  COHORT 탭
+    // ────────────────────────────────────────────────────────────────
+    const ACT_COLORS = {
+        '출석':           '#6366f1',
+        '광고(전체)':     '#3b82f6',
+        '광고(링크)':     '#06b6d4',
+        '광고(스크래치)': '#14b8a6',
+        '광고(비디오)':   '#22c55e',
+        '이벤트댓글':     '#eab308',
+        '설문댓글':       '#f97316',
+        '이벤트공유':     '#ec4899',
+        '포인트전환':     '#a855f7',
+    };
+    const ACT_MONTHLY = ['출석','광고(전체)','광고(링크)','광고(스크래치)','광고(비디오)','이벤트댓글','설문댓글'];
+    const GRADE_COLORS = { Welcome:'#94a3b8', Good:'#86efac', Best:'#fdba74', Soul:'#c4b5fd', Close:'#fca5a5' };
+
+    // 이탈률 값에 따른 배경색 (히트맵)
+    function churnHeatColor(v) {
+        if (v === null || v === undefined) return '#ffffff08';
+        if (v >= 80) return '#ef444460';
+        if (v >= 60) return '#f9731650';
+        if (v >= 40) return '#eab30840';
+        if (v >= 20) return '#22c55e30';
+        return '#3b82f620';
+    }
+    function rateHeatColor(v) {
+        if (v >= 80) return '#22c55e50';
+        if (v >= 60) return '#22c55e30';
+        if (v >= 40) return '#3b82f630';
+        if (v >= 20) return '#eab30830';
+        return '#ef444430';
+    }
+
+    let cohortGroupChart = null;
+
+    function renderCohort() {
+        const CA = DATA.cohort_activity;
+        if (!CA || !CA.dates) {
+            document.getElementById('tab-cohort').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dim);">코호트 데이터 없음</div>';
+            return;
+        }
+
+        const dates   = CA.dates;
+        const acts    = CA.activity_labels || [];
+        const dod     = CA.day_over_day || [];
+        const overall = CA.overall_rates || {};
+
+        // ── KPI row: 스냅샷 기준 최신 이탈 지표
+        let kh = '';
+        if (dod.length > 0) {
+            const last = dod[dod.length - 1];
+            const sn   = last.snapshot;
+            kh += kpi('활성 회원 이탈', sn.churned.toLocaleString() + '명',
+                `${last.from.slice(5)} → ${last.to.slice(5)} / 이탈률 ${sn.churn_rate}%`);
+            kh += kpi('신규·재활성화', sn.new.toLocaleString() + '명',
+                `유입률 ${sn.new_rate}%`);
+            kh += kpi('유지 회원', sn.retained.toLocaleString() + '명',
+                `유지율 ${sn.retention_rate}%`);
+            kh += kpi('순 증감', (sn.total_b - sn.total_a >= 0 ? '+' : '') + (sn.total_b - sn.total_a).toLocaleString() + '명',
+                `전일 ${sn.total_a.toLocaleString()} → 당일 ${sn.total_b.toLocaleString()}`);
+        }
+        ['출석','광고(전체)'].forEach(act => {
+            const rates = overall[act];
+            if (!rates) return;
+            const latest = rates[rates.length - 1];
+            const prev   = rates.length > 1 ? rates[rates.length - 2] : null;
+            const delta  = prev !== null ? (latest - prev).toFixed(1) : null;
+            kh += kpi(act + ' 참여율', pct(latest), delta !== null ? `전일 ${delta > 0 ? '+' : ''}${delta}%p` : '기준일');
+        });
+        document.getElementById('cohort-kpis').innerHTML = kh;
+
+        // ── 1) 스냅샷 기준 일별 이탈·유입·유지 흐름
+        if (dod.length > 0) {
+            const dodLabels = dod.map(d => `${d.from.slice(5)}→${d.to.slice(5)}`);
+
+            chart('chart-churn-flow', {
+                type: 'bar',
+                data: {
+                    labels: dodLabels,
+                    datasets: [
+                        {
+                            label: '신규·재활성화 (▲)',
+                            data: dod.map(d => d.snapshot?.new ?? 0),
+                            backgroundColor: '#22c55e80', borderColor: '#22c55e', borderWidth: 1, borderRadius: 4,
+                        },
+                        {
+                            label: '이탈 (▼)',
+                            data: dod.map(d => -(d.snapshot?.churned ?? 0)),
+                            backgroundColor: '#ef444480', borderColor: '#ef4444', borderWidth: 1, borderRadius: 4,
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'bottom' },
+                        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${Math.abs(ctx.parsed.y).toLocaleString()}명` } }
+                    },
+                    scales: { y: { title: { display: true, text: '회원 수 (명)' } } }
+                }
+            });
+
+            // 스냅샷 이탈률 라인
+            chart('chart-churn-line', {
+                type: 'line',
+                data: {
+                    labels: dodLabels,
+                    datasets: [
+                        {
+                            label: '이탈률 (%)',
+                            data: dod.map(d => d.snapshot?.churn_rate ?? null),
+                            borderColor: '#ef4444', backgroundColor: '#ef444418',
+                            tension: 0.3, pointRadius: 5, borderWidth: 2, fill: true,
+                            segment: { borderDash: ctx => dod[ctx.p1DataIndex]?.month_boundary ? [6,4] : [] }
+                        },
+                        {
+                            label: '유지율 (%)',
+                            data: dod.map(d => d.snapshot?.retention_rate ?? null),
+                            borderColor: '#22c55e', backgroundColor: 'transparent',
+                            tension: 0.3, pointRadius: 4, borderWidth: 2,
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'bottom' },
+                        tooltip: { callbacks: { afterBody: items => {
+                            const i = items[0]?.dataIndex;
+                            if (i !== undefined && dod[i]?.month_boundary) return ['⚠️ 월 경계: 수치 참고용'];
+                            return [];
+                        }}}
+                    },
+                    scales: { y: { min: 0, ticks: { callback: v => v + '%' }, title: { display: true, text: '비율 (%)' } } }
+                }
+            });
+
+            // ── 이탈률 히트맵 테이블 (스냅샷 기준)
+            const thead = document.getElementById('cohort-churn-thead');
+            const tbody = document.getElementById('cohort-churn-tbody');
+            thead.innerHTML = '<th>구분</th>' +
+                dod.map(d => `<th style="${d.month_boundary ? 'color:#eab308;' : ''}">${d.from.slice(5)}<br>→${d.to.slice(5)}${d.month_boundary ? '<br>⚠️' : ''}</th>`).join('');
+
+            const snapRows = [
+                { label: '이탈 (명)',  fn: d => d.snapshot?.churned ?? '-',       style: 'color:#ef4444;font-weight:600;' },
+                { label: '이탈률',     fn: d => (d.snapshot?.churn_rate ?? '-') + (d.snapshot ? '%' : ''), bg: true },
+                { label: '신규·재활성화',fn: d => d.snapshot?.new ?? '-',         style: 'color:#22c55e;font-weight:600;' },
+                { label: '유지율',     fn: d => (d.snapshot?.retention_rate ?? '-') + (d.snapshot ? '%' : ''), style: 'color:#22c55e;' },
+                { label: '전일 회원수', fn: d => (d.snapshot?.total_a ?? '-').toLocaleString?.() ?? '-', style: 'color:var(--text-dim);' },
+                { label: '당일 회원수', fn: d => (d.snapshot?.total_b ?? '-').toLocaleString?.() ?? '-', style: 'color:var(--text-dim);' },
+            ];
+
+            const actRows = acts.filter(a => CA.activity_notes?.[a] === 'monthly').map(act => ({
+                label: act + ' 이탈률',
+                fn: d => {
+                    const t = d.activities?.[act];
+                    if (!t) return '-';
+                    if (t.unreliable) return '<span style="color:#eab308;">⚠️</span>';
+                    return `${t.churn_rate}%`;
+                },
+                bg: true,
+            }));
+
+            tbody.innerHTML = [...snapRows, ...actRows].map(row => {
+                const cells = dod.map(d => {
+                    const v = row.fn(d);
+                    const numV = parseFloat(v);
+                    const bg = row.bg && !isNaN(numV) ? churnHeatColor(numV) : '';
+                    return `<td style="text-align:center;background:${bg};${row.style || ''}">${v}</td>`;
+                }).join('');
+                return `<tr><td style="white-space:nowrap;font-size:12px;"><b>${row.label}</b></td>${cells}</tr>`;
+            }).join('');
+        }
+
+        // ── 2) 등급별 일별 이탈률 히트맵
+        if (dod.length > 0) {
+            const latest_dod = dod[dod.length - 1];
+            document.getElementById('cohort-churn-latest-label').textContent =
+                `— ${latest_dod.from.slice(5)} → ${latest_dod.to.slice(5)}${latest_dod.month_boundary ? ' ⚠️월 경계' : ''}`;
+
+            const gradeKeys = CA.by_grade?.cohort_keys || [];
+            const dodLabels = dod.map(d => `${d.from.slice(5)}→${d.to.slice(5)}`);
+
+            const gradeDatasets = gradeKeys.map((g, gi) => ({
+                label: g,
+                data: dod.map(d => d.grade_snapshot?.[g]?.churn_rate ?? null),
+                backgroundColor: (GRADE_COLORS[g] || C[gi]) + '99',
+                borderColor: GRADE_COLORS[g] || C[gi],
+                borderWidth: 1, borderRadius: 3,
+            }));
+
+            chart('chart-cohort-churn-grade', {
+                type: 'line',
+                data: { labels: dodLabels, datasets: gradeDatasets },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { min: 0, ticks: { callback: v => v + '%' }, title: { display: true, text: '이탈률 (%)' } } }
+                }
+            });
+        }
+
+        // ── 3) 전체 활동 참여율 일별 추이 (monthly만)
+        const monthlyActs = acts.filter(a => CA.activity_notes?.[a] === 'monthly');
+        const overallDatasets = monthlyActs.map(act => ({
+            label: act,
+            data: overall[act],
+            borderColor: ACT_COLORS[act] || '#888',
+            backgroundColor: (ACT_COLORS[act] || '#888') + '18',
+            tension: 0.3, pointRadius: 4, borderWidth: 2,
+        }));
+        chart('chart-cohort-overall', {
+            type: 'line',
+            data: { labels: dates, datasets: overallDatasets },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: '참여율 (%)' } } }
+            }
+        });
+
+        // ── 4) 코호트 그룹 차트
+        const actSelect = document.getElementById('cohort-activity-select');
+        if (!actSelect.options.length) {
+            monthlyActs.forEach(act => {
+                const opt = document.createElement('option');
+                opt.value = act; opt.textContent = act;
+                actSelect.appendChild(opt);
+            });
+        }
+
+        function renderCohortGroup() {
+            const cohortType = document.getElementById('cohort-type-select').value;
+            const selAct     = document.getElementById('cohort-activity-select').value;
+            const cohortData = cohortType === 'grade' ? CA.by_grade : CA.by_join_year;
+            if (!cohortData) return;
+            const keys = cohortData.cohort_keys;
+            const datasets = keys.map((key, ki) => {
+                const c = cohortType === 'grade' ? (GRADE_COLORS[key] || C[ki]) : C[ki % C.length];
+                return { label: key, data: cohortData.data[key].activity_rates[selAct] || [],
+                    borderColor: c, backgroundColor: c + '20', tension: 0.3, pointRadius: 4, borderWidth: 2 };
+            });
+            if (cohortGroupChart) { cohortGroupChart.destroy(); cohortGroupChart = null; }
+            cohortGroupChart = new Chart(document.getElementById('chart-cohort-group'), {
+                type: 'line',
+                data: { labels: dates, datasets },
+                options: { responsive: true, interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: '참여율 (%)' } } } }
+            });
+        }
+
+        renderCohortGroup();
+        document.getElementById('cohort-type-select').onchange = renderCohortGroup;
+        document.getElementById('cohort-activity-select').onchange = renderCohortGroup;
+
+        // ── 5) 코호트 × 활동 히트맵 테이블
+        function renderHeatmap() {
+            const htype = document.getElementById('cohort-heatmap-type').value;
+            const cd = htype === 'grade' ? CA.by_grade : CA.by_join_year;
+            if (!cd) return;
+            const keys = cd.cohort_keys;
+            const latestIdx = dates.length - 1;
+            document.getElementById('cohort-heatmap-date').textContent = `— ${dates[latestIdx]} 기준`;
+            const table = document.getElementById('cohort-heatmap-table');
+            const headRow = `<thead><tr><th>${htype === 'grade' ? '등급' : '가입연도'}</th><th>회원수</th>${monthlyActs.map(a => `<th>${a}</th>`).join('')}</tr></thead>`;
+            const bodyRows = keys.map(key => {
+                const row = cd.data[key];
+                const cnt = row.counts[latestIdx];
+                const cells = monthlyActs.map(act => {
+                    const v = row.activity_rates[act]?.[latestIdx] ?? 0;
+                    return `<td style="background:${rateHeatColor(v)};text-align:center;"><b>${v}%</b></td>`;
+                }).join('');
+                return `<tr><td><b>${key}</b></td><td>${cnt.toLocaleString()}</td>${cells}</tr>`;
+            }).join('');
+            table.innerHTML = headRow + `<tbody>${bodyRows}</tbody>`;
+        }
+
+        renderHeatmap();
+        document.getElementById('cohort-heatmap-type').onchange = renderHeatmap;
+    }
+
+    function renderGA() {
+        const ga = DATA.ga;
+        const noData = document.getElementById('ga-no-data');
+        const content = document.getElementById('ga-content');
+
+        if (!ga || !ga.dates || ga.dates.length === 0) {
+            noData.style.display = '';
+            content.style.display = 'none';
+            return;
+        }
+        noData.style.display = 'none';
+        content.style.display = '';
+
+        const dates  = ga.dates;
+        const daily  = ga.daily;
+        const totals = ga.totals || {};
+        const EVT_COLORS = {
+            poll_success:         '#6366f1',
+            survey_success:       '#22c55e',
+            quick_survey_success: '#3b82f6',
+            point_conversion:     '#f97316',
+        };
+        const EVT_LABEL = {
+            poll_success:         '투표 참여',
+            survey_success:       '서베이 참여',
+            quick_survey_success: '퀵서베이 참여',
+            point_conversion:     '포인트 전환',
+        };
+        const EVTS = Object.keys(EVT_LABEL);
+
+        // ── GA 출처 배너
+        const gaGenAt  = ga.generated_at || '-';
+        const firstDate = dates[0] || '-';
+        const lastDate  = dates[dates.length - 1] || '-';
+        const usersSummary = EVTS
+            .filter(e => totals[e] && totals[e].unique_users)
+            .map(e => `${EVT_LABEL[e]} <b style="color:#e2e8f0;">${num(totals[e].unique_users)}명</b>`)
+            .join('&nbsp;&nbsp;|&nbsp;&nbsp;');
+        document.getElementById('ga-source-banner').innerHTML =
+            `<span style="background:#3b82f625;border:1px solid #3b82f6;color:#60a5fa;padding:2px 9px;border-radius:4px;font-weight:700;font-size:11px;white-space:nowrap;">GA 기준</span>` +
+            `<span>수집 기간&nbsp;<b style="color:#e2e8f0;">${firstDate} ~ ${lastDate}</b>&nbsp;(${dates.length}일)</span>` +
+            `<span>추출일&nbsp;<b style="color:#e2e8f0;">${gaGenAt}</b></span>` +
+            `<span style="flex:1;">${usersSummary}</span>`;
+
+        // ── KPI row
+        const GA_BADGE = `&thinsp;<span style="font-size:9px;background:#3b82f625;border:1px solid #3b82f650;color:#60a5fa;padding:1px 5px;border-radius:3px;font-weight:600;vertical-align:middle;">GA기준</span>`;
+        let kh = '';
+        EVTS.forEach(evt => {
+            const t = totals[evt];
+            if (!t) { kh += kpi(EVT_LABEL[evt] + GA_BADGE, '-', '데이터 없음'); return; }
+            kh += kpi(EVT_LABEL[evt] + GA_BADGE,
+                num(t.unique_users) + '명',
+                `총 ${num(t.total_events)}건` + (t.total_amount > 0 ? ` / ${num(t.total_amount)}P` : ''));
+        });
+        document.getElementById('ga-kpis').innerHTML = kh;
+
+        // ── 일별 참여자 수 라인
+        const userDatasets = EVTS.map(evt => ({
+            label: EVT_LABEL[evt],
+            data: dates.map(d => daily[d]?.[evt]?.unique_users ?? null),
+            borderColor: EVT_COLORS[evt],
+            backgroundColor: EVT_COLORS[evt] + '18',
+            tension: 0.3, pointRadius: 4, borderWidth: 2,
+        }));
+        chart('chart-ga-daily-users', {
+            type: 'line',
+            data: { labels: dates, datasets: userDatasets },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { title: { display: true, text: '참여자 수 (명)' } } }
+            }
+        });
+
+        // ── 이벤트별 총 건수 막대
+        chart('chart-ga-total-events', {
+            type: 'bar',
+            data: {
+                labels: EVTS.map(e => EVT_LABEL[e]),
+                datasets: [{
+                    data: EVTS.map(e => totals[e]?.total_events ?? 0),
+                    backgroundColor: EVTS.map(e => EVT_COLORS[e] + 'aa'),
+                    borderColor: EVTS.map(e => EVT_COLORS[e]),
+                    borderWidth: 1, borderRadius: 6,
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } },
+                       scales: { y: { title: { display: true, text: '총 건수' } } } }
+        });
+
+        // ── 포인트 전환 타입별 도넛
+        const convDates = dates.filter(d => daily[d]?.point_conversion?.by_type);
+        const typeAgg = {};
+        convDates.forEach(d => {
+            const bt = daily[d].point_conversion.by_type || {};
+            Object.entries(bt).forEach(([t, v]) => {
+                if (!typeAgg[t]) typeAgg[t] = { users: 0, amount: 0 };
+                typeAgg[t].users  += v.users || 0;
+                typeAgg[t].amount += v.amount || 0;
+            });
+        });
+        const typeKeys = Object.keys(typeAgg);
+        if (typeKeys.length > 0) {
+            chart('chart-ga-conversion-type', {
+                type: 'doughnut',
+                data: {
+                    labels: typeKeys,
+                    datasets: [{ data: typeKeys.map(t => typeAgg[t].amount),
+                                 backgroundColor: C.slice(0, typeKeys.length).map(c => c + 'cc') }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'right' },
+                    tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}P` } } } }
+            });
+        } else {
+            document.getElementById('chart-ga-conversion-type').closest('.funnel-visual-card')
+                .innerHTML += '<p style="text-align:center;color:var(--text-dim);font-size:12px;">전환 타입 파라미터 없음<br>bq_fetch.py --mode discover 로 파라미터 확인</p>';
+        }
+
+        // ── 전환액 일별 라인
+        chart('chart-ga-conversion-amount', {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    { label: '전환액 합계', data: dates.map(d => daily[d]?.point_conversion?.total_amount ?? null),
+                      borderColor: '#f97316', backgroundColor: '#f9731620', fill: true, tension: 0.3, pointRadius: 4, yAxisID: 'y' },
+                    { label: '인당 평균', data: dates.map(d => daily[d]?.point_conversion?.avg_amount ?? null),
+                      borderColor: '#eab308', backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, borderDash: [5,4], yAxisID: 'y1' },
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y:  { title: { display: true, text: '전환액 합계 (P)' }, position: 'left' },
+                    y1: { title: { display: true, text: '인당 평균 (P)' }, position: 'right', grid: { drawOnChartArea: false } }
+                }
+            }
+        });
+
+        // ── 파트너별 분석 ────────────────────────────────────────────
+        const PARTNER_COLORS = {
+            'OK_CASHBAG': '#f97316',
+            'NAVER_PAY':  '#22c55e',
+            'L_POINT':    '#6366f1',
+            'CJONE':      '#3b82f6',
+            'HAPPY_POINT':'#ec4899',
+        };
+        const PARTNER_LABEL = {
+            'OK_CASHBAG': 'OK캐쉬백',
+            'NAVER_PAY':  '네이버페이',
+            'L_POINT':    'L포인트',
+            'CJONE':      'CJ ONE',
+            'HAPPY_POINT':'해피포인트',
+        };
+
+        // 파트너 목록 수집
+        const partnerSet = new Set();
+        dates.forEach(d => {
+            const bp = daily[d]?.point_conversion?.by_partner || {};
+            Object.keys(bp).forEach(p => partnerSet.add(p));
+        });
+        const partners = [...partnerSet].sort();
+
+        // 전체 기간 파트너별 집계
+        const partnerTotals = {};
+        partners.forEach(p => {
+            partnerTotals[p] = { count: 0, amount: 0 };
+        });
+        dates.forEach(d => {
+            const bp = daily[d]?.point_conversion?.by_partner || {};
+            Object.entries(bp).forEach(([p, v]) => {
+                if (!partnerTotals[p]) partnerTotals[p] = { count: 0, amount: 0 };
+                partnerTotals[p].count  += v.completed || 0;
+                partnerTotals[p].amount += v.amount    || 0;
+            });
+        });
+
+        const pColors = partners.map(p => PARTNER_COLORS[p] || C[partners.indexOf(p) % C.length]);
+        const pLabels = partners.map(p => PARTNER_LABEL[p] || p);
+
+        // 도넛 - 건수
+        chart('chart-ga-partner-count-donut', {
+            type: 'doughnut',
+            data: {
+                labels: pLabels,
+                datasets: [{ data: partners.map(p => partnerTotals[p].count),
+                             backgroundColor: pColors.map(c => c + 'cc') }]
+            },
+            options: { responsive: true,
+                plugins: { legend: { position: 'bottom' },
+                    tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}건` } } } }
+        });
+
+        // 도넛 - 금액
+        chart('chart-ga-partner-amount-donut', {
+            type: 'doughnut',
+            data: {
+                labels: pLabels,
+                datasets: [{ data: partners.map(p => partnerTotals[p].amount),
+                             backgroundColor: pColors.map(c => c + 'cc') }]
+            },
+            options: { responsive: true,
+                plugins: { legend: { position: 'bottom' },
+                    tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}P` } } } }
+        });
+
+        // 날짜 포맷 (20260409 → 04/09)
+        const fmtDate = d => d.length === 8 ? `${d.slice(4,6)}/${d.slice(6,8)}` : d;
+        const dLabels = dates.map(fmtDate);
+
+        // 그룹 막대 - 일별 건수
+        chart('chart-ga-partner-daily-count', {
+            type: 'bar',
+            data: {
+                labels: dLabels,
+                datasets: partners.map((p, pi) => ({
+                    label: PARTNER_LABEL[p] || p,
+                    data: dates.map(d => daily[d]?.point_conversion?.by_partner?.[p]?.completed ?? 0),
+                    backgroundColor: pColors[pi] + '99',
+                    borderColor: pColors[pi], borderWidth: 1, borderRadius: 3,
+                }))
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: { x: { stacked: false }, y: { title: { display: true, text: '완료 건수' } } }
+            }
+        });
+
+        // 그룹 막대 - 일별 금액
+        chart('chart-ga-partner-daily-amount', {
+            type: 'bar',
+            data: {
+                labels: dLabels,
+                datasets: partners.map((p, pi) => ({
+                    label: PARTNER_LABEL[p] || p,
+                    data: dates.map(d => daily[d]?.point_conversion?.by_partner?.[p]?.amount ?? 0),
+                    backgroundColor: pColors[pi] + '99',
+                    borderColor: pColors[pi], borderWidth: 1, borderRadius: 3,
+                }))
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: { x: { stacked: false }, y: { title: { display: true, text: '전환액 (P)' } } }
+            }
+        });
+
+        // 파트너별 상세 테이블
+        const thead = document.getElementById('ga-partner-thead');
+        const ptbody = document.getElementById('ga-partner-tbody');
+        thead.innerHTML = `<tr><th>파트너</th>${dLabels.map(d =>
+            `<th colspan="2" style="text-align:center;">${d}</th>`).join('')}<th>합계 건수</th><th>합계 금액</th></tr>
+            <tr><th></th>${dates.map(() => '<th>건수</th><th>금액(P)</th>').join('')}<th></th><th></th></tr>`;
+        ptbody.innerHTML = partners.map(p => {
+            const cells = dates.map(d => {
+                const v = daily[d]?.point_conversion?.by_partner?.[p];
+                return `<td style="text-align:right;">${v ? v.completed.toLocaleString() : '-'}</td>
+                        <td style="text-align:right;">${v ? v.amount.toLocaleString() : '-'}</td>`;
+            }).join('');
+            return `<tr>
+                <td><b>${PARTNER_LABEL[p] || p}</b></td>
+                ${cells}
+                <td style="text-align:right;font-weight:600;">${partnerTotals[p].count.toLocaleString()}</td>
+                <td style="text-align:right;font-weight:600;">${partnerTotals[p].amount.toLocaleString()}P</td>
+            </tr>`;
+        }).join('');
+
+        // ── 일별 테이블
+        document.getElementById('ga-daily-tbody').innerHTML = [...dates].reverse().map(d => {
+            const row = daily[d] || {};
+            const poll  = row.poll_success;
+            const srv   = row.survey_success;
+            const qsrv  = row.quick_survey_success;
+            const conv  = row.point_conversion;
+            return `<tr>
+                <td style="font-weight:600;white-space:nowrap;">${fmtDate(d)}</td>
+                <td>${poll  ? num(poll.unique_users)  : '-'}</td>
+                <td>${srv   ? num(srv.unique_users)   : '-'}</td>
+                <td>${qsrv  ? num(qsrv.unique_users)  : '-'}</td>
+                <td>${conv  ? num(conv.unique_users)  : '-'}</td>
+                <td>${conv  ? num(conv.total_amount) + 'P' : '-'}</td>
+                <td>${conv  ? num(conv.avg_amount)   + 'P' : '-'}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderJoin() {
+        const J = DATA.join;
+        const noData = document.getElementById('join-no-data');
+        const content = document.getElementById('join-content');
+        if (!J || !J.match_rate) { noData.style.display = ''; content.style.display = 'none'; return; }
+        noData.style.display = 'none'; content.style.display = '';
+
+        const PARTNER_LABEL = { OK_CASHBAG:'OK캐쉬백', NAVER_PAY:'네이버페이', L_POINT:'L포인트', CJONE:'CJ ONE', HAPPY_POINT:'해피포인트' };
+        const PARTNER_COLORS = { OK_CASHBAG:'#f97316', NAVER_PAY:'#22c55e', L_POINT:'#6366f1', CJONE:'#3b82f6', HAPPY_POINT:'#ec4899' };
+        const GRADE_ORDER = ['Welcome','Good','Best','Soul','Close'];
+        const EVT_LABEL = { poll_success:'투표', survey_success:'서베이', quick_survey_success:'퀵서베이', point_conversion:'포인트전환' };
+
+        // 매칭 배너
+        document.getElementById('join-match-banner').innerHTML =
+            `<span style="background:#22c55e20;border:1px solid #22c55e;color:#22c55e;padding:2px 8px;border-radius:4px;font-weight:600;">🔗 JOIN 완료</span>
+             <span>user_state × GA raw 이벤트 <b style="color:#e2e8f0;">${J.total_rows.toLocaleString()}건</b> 매칭 &nbsp;•&nbsp; 매칭률 <b style="color:#22c55e;">${J.match_rate}%</b></span>
+             <span style="margin-left:auto;background:#3b82f625;border:1px solid #3b82f6;color:#60a5fa;padding:2px 8px;border-radius:4px;font-weight:600;font-size:11px;">GA기준</span>`;
+
+        // KPI row: 등급별 인당 평균 전환액
+        const gaa = J.grade_avg_amount || {};
+        let kh = '';
+        GRADE_ORDER.filter(g => gaa[g]).forEach(g => {
+            kh += kpi(g + ' 등급', num(gaa[g]) + 'P', '인당 평균 전환액');
+        });
+        document.getElementById('join-kpis').innerHTML = kh;
+
+        // 등급 × 파트너 히트맵 테이블
+        const gp = J.grade_partner || {};
+        const allPartners = [...new Set(GRADE_ORDER.flatMap(g => Object.keys(gp[g] || {})))];
+        const gpTable = document.getElementById('join-grade-partner-table');
+        const grades = GRADE_ORDER.filter(g => gp[g]);
+        gpTable.innerHTML = `
+            <thead><tr><th>등급</th>${allPartners.map(p => `<th>${PARTNER_LABEL[p]||p}</th>`).join('')}<th>합계</th></tr></thead>
+            <tbody>${grades.map(g => {
+                const row = gp[g];
+                const totalAmt = allPartners.reduce((s,p) => s + (row[p]?.amount||0), 0);
+                const totalEvt = allPartners.reduce((s,p) => s + (row[p]?.events||0), 0);
+                const cells = allPartners.map(p => {
+                    const v = row[p];
+                    if (!v) return '<td style="color:var(--text-dim)">-</td>';
+                    const pct = totalEvt > 0 ? Math.round(v.events/totalEvt*100) : 0;
+                    const bg = pct > 50 ? '#f9731630' : pct > 20 ? '#eab30825' : '#3b82f615';
+                    return `<td style="background:${bg};text-align:center;">
+                        <b>${v.events.toLocaleString()}</b><br>
+                        <span style="font-size:10px;color:var(--text-dim)">${v.amount.toLocaleString()}P</span>
+                    </td>`;
+                }).join('');
+                return `<tr><td><b>${g}</b></td>${cells}
+                    <td style="text-align:right;font-weight:600;">${totalEvt.toLocaleString()}<br>
+                    <span style="font-size:10px;color:var(--text-dim)">${totalAmt.toLocaleString()}P</span></td></tr>`;
+            }).join('')}</tbody>`;
+
+        // 등급별 전환 건수 막대
+        const gc = J.grade_conv || {};
+        if (gc.labels) {
+            chart('chart-join-grade-events', {
+                type: 'bar',
+                data: { labels: gc.labels, datasets: [{
+                    data: gc.events, borderRadius: 5,
+                    backgroundColor: gc.labels.map((_,i) => C[i%C.length]+'99'),
+                    borderColor: gc.labels.map((_,i) => C[i%C.length]), borderWidth: 1,
+                }]},
+                options: { responsive:true, plugins:{legend:{display:false}},
+                    scales:{y:{title:{display:true,text:'전환 건수'}}} }
+            });
+        }
+
+        // 등급별 인당 평균 전환액 막대
+        const avgGrades = GRADE_ORDER.filter(g => gaa[g]);
+        chart('chart-join-grade-avg', {
+            type: 'bar',
+            data: { labels: avgGrades, datasets: [{
+                label: '인당 평균 전환액',
+                data: avgGrades.map(g => gaa[g]),
+                backgroundColor: avgGrades.map((_,i) => C[i%C.length]+'99'),
+                borderColor: avgGrades.map((_,i) => C[i%C.length]),
+                borderWidth: 1, borderRadius: 5,
+            }]},
+            options: { responsive:true, plugins:{legend:{display:false}},
+                scales:{y:{title:{display:true,text:'포인트(P)'}}} }
+        });
+
+        // 연령대별 이벤트 차트
+        const AGE_ORDER = ['~19', '20대', '30대', '40대', '50대', '60+', '미상'];
+        let ageChart = null;
+        function renderAgeChart() {
+            const evt = document.getElementById('join-age-event-select').value;
+            const ae = (J.age_events || {})[evt] || {};
+            if (!ae.labels) return;
+
+            // 어린 순(연령 오름차순)으로 정렬
+            const sortedIdx = ae.labels
+                .map((l, i) => i)
+                .sort((a, b) => {
+                    const ai = AGE_ORDER.indexOf(ae.labels[a]);
+                    const bi = AGE_ORDER.indexOf(ae.labels[b]);
+                    return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+                });
+            const labels = sortedIdx.map(i => ae.labels[i]);
+            const users  = sortedIdx.map(i => ae.users[i]);
+            const events = sortedIdx.map(i => ae.events[i]);
+
+            if (ageChart) { ageChart.destroy(); ageChart = null; }
+            const ctx = document.getElementById('chart-join-age-events');
+            ageChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets: [
+                    { label:'참여자 수', data: users,  backgroundColor: C[0]+'99', borderColor: C[0], borderWidth:1, borderRadius:4 },
+                    { label:'총 건수',   data: events, backgroundColor: C[1]+'99', borderColor: C[1], borderWidth:1, borderRadius:4 },
+                ]},
+                options: { responsive:true, interaction:{mode:'index',intersect:false},
+                    plugins:{legend:{position:'bottom'}},
+                    scales:{y:{title:{display:true,text:'수'}}} }
+            });
+        }
+        renderAgeChart();
+        document.getElementById('join-age-event-select').onchange = renderAgeChart;
+
+        // 성별 × 이벤트 그룹 막대
+        const se = J.sex_events || {};
+        const sexEvts = Object.keys(EVT_LABEL);
+        const sexLabels = ['F','M','-'].map(s => s==='F'?'여성':s==='M'?'남성':'미설정');
+        chart('chart-join-sex-events', {
+            type: 'bar',
+            data: { labels: sexEvts.map(e => EVT_LABEL[e]), datasets: [
+                { label:'여성', data: sexEvts.map(e => {
+                    const d = (se[e]||{});
+                    const idx = (d.labels||[]).findIndex(l=>l==='F');
+                    return idx>=0 ? d.users[idx] : 0;
+                }), backgroundColor: C[4]+'99', borderColor: C[4], borderWidth:1, borderRadius:3 },
+                { label:'남성', data: sexEvts.map(e => {
+                    const d = (se[e]||{});
+                    const idx = (d.labels||[]).findIndex(l=>l==='M');
+                    return idx>=0 ? d.users[idx] : 0;
+                }), backgroundColor: C[3]+'99', borderColor: C[3], borderWidth:1, borderRadius:3 },
+            ]},
+            options: { responsive:true, interaction:{mode:'index',intersect:false},
+                plugins:{legend:{position:'bottom'}},
+                scales:{y:{title:{display:true,text:'참여자 수'}}} }
+        });
+
+        // 지역별 전환 막대
+        const rc = J.region_conv || {};
+        if (rc.labels) {
+            chart('chart-join-region-conv', {
+                type: 'bar',
+                data: { labels: rc.labels, datasets: [{
+                    data: rc.events, backgroundColor: C[5]+'99',
+                    borderColor: C[5], borderWidth:1, borderRadius:4,
+                }]},
+                options: { responsive:true, indexAxis:'y', plugins:{legend:{display:false}},
+                    scales:{x:{title:{display:true,text:'전환 건수'}}} }
+            });
+        }
+    }
+
+    function renderTrend() {
+        const us = DATA.user_state_kpis.filter(d => d.active_this_month > 0);
+        const dates = us.map(d => d.date);
+
+        chart('chart-trend-users', {
+            type: 'line',
+            data: { labels: dates, datasets: [{ label:'활성 회원 수', data: us.map(d=>d.total_users), borderColor:C[0], backgroundColor:C[0]+'20', fill:true, tension:0.3, pointRadius:4 }] },
+            options: { responsive:true, plugins:{legend:{display:false}} }
+        });
+
+        chart('chart-trend-active', {
+            type: 'line',
+            data: { labels: dates, datasets: [{ label:'당일 활성률(%)', data: us.map(d=>d.active_rate), borderColor:C[1], backgroundColor:C[1]+'20', fill:true, tension:0.3, pointRadius:4 }] },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>v+'%'}}} }
+        });
+
+        // 전환자 수: users_with_conversion 은 연간 누적 → 전일 대비 순증으로 표시
+        chart('chart-trend-conversion', {
+            type: 'bar',
+            data: { labels: dates, datasets: [{ label:'신규 전환자 (명)', data: dailyDelta(us, d => d.users_with_conversion), backgroundColor:C[2]+'80', borderColor:C[2], borderWidth:1, borderRadius:4 }] },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{title:{display:true,text:'명 (순증)'},beginAtZero:true}} }
+        });
+
+        // 전환액: total_point_conversion 은 연간 누적합 → 전일 대비 순증으로 표시
+        chart('chart-trend-point', {
+            type: 'bar',
+            data: { labels: dates, datasets: [{ label:'신규 전환액 (P)', data: dailyDelta(us, d => d.total_point_conversion), backgroundColor:C[3]+'80', borderColor:C[3], borderWidth:1, borderRadius:4 }] },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{title:{display:true,text:'P (순증)'},beginAtZero:true,ticks:{callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':v}}} }
+        });
+
+        chart('chart-trend-attendance', {
+            type: 'line',
+            data: { labels: dates, datasets: [{ label:'누적 평균 출석일 (일)', data: us.map(d=>d.avg_attendance_month), borderColor:C[5], backgroundColor:C[5]+'20', fill:true, tension:0.3, pointRadius:4 }] },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{title:{display:true,text:'일 (누적)'}}} }
+        });
+
+        chart('chart-trend-daily-active', {
+            type: 'bar',
+            data: { labels: dates, datasets: [{ label:'일별 출석 회원 (명)', data: us.map(d=>d.active_this_month), backgroundColor:C[1]+'80', borderColor:C[1], borderWidth:1, borderRadius:4 }] },
+            options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{title:{display:true,text:'명'},beginAtZero:false}} }
+        });
+    }
+
+    function renderFullMember() {
+        const fm = DATA.full_member;
+        if (!fm || !fm.total) {
+            document.getElementById('fullmember-content').innerHTML =
+                '<div style="color:#64748b;padding:40px;text-align:center;">전체 회원 데이터 없음 — 상위 폴더에 전체회원Grade_데이터*.xlsx 파일을 두고 process_data.py를 실행하세요.</div>';
+            return;
+        }
+
+        const activeLast  = DATA.user_state_kpis.at(-1) || {};
+        const activeTotal = activeLast.total_users || 0;
+        const gradeOrder  = ['Welcome','Soul','Good','Best','Close'];
+        const gradeColors = ['#6366f1','#3b82f6','#14b8a6','#f59e0b','#ec4899'];
+        const inactiveTotal = fm.total - activeTotal;
+        const activeRate = activeTotal ? (activeTotal / fm.total * 100).toFixed(1) : '-';
+
+        // ── KPI 카드
+        const kpiHtml = [
+            ['전체 가입 회원', num(fm.total) + '명', '활성+비활성 합산', '#f59e0b'],
+            ['활성 회원', num(activeTotal) + '명', activeRate + '% (활성률)', '#22c55e'],
+            ['비활성 · 이탈 회원', num(inactiveTotal) + '명', (100 - parseFloat(activeRate)).toFixed(1) + '%', '#ef4444'],
+            ['알림 수신 동의', num(fm.noti_agree_dist?.Y || 0) + '명', fm.noti_agree_rate + '% 동의율', '#6366f1'],
+        ].map(([t, v, s, c]) =>
+            `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-value" style="color:${c}">${v}</div><div class="kpi-sub">${s}</div></div>`
+        ).join('');
+
+        // ── 등급 비교 테이블
+        const activeGrade = activeLast.grade_dist || {};
+        const gradeRows = gradeOrder.map(g => {
+            const total_g = fm.grade_dist?.[g] || 0;
+            const active_g = activeGrade[g] || 0;
+            const inactive_g = total_g - active_g;
+            const activeRateG = total_g ? (active_g / total_g * 100).toFixed(1) : '-';
+            return `<tr>
+                <td>${g}</td>
+                <td>${num(total_g)}</td>
+                <td style="color:#22c55e">${num(active_g)}</td>
+                <td style="color:#ef4444">${num(inactive_g)}</td>
+                <td>${activeRateG}%</td>
+            </tr>`;
+        }).join('');
+
+        // ── 통신사 테이블
+        const telRows = Object.entries(fm.telecom_dist || {})
+            .sort((a,b) => b[1]-a[1])
+            .map(([k,v]) => `<tr><td>${k||'미상'}</td><td>${num(v)}</td><td>${(v/fm.total*100).toFixed(1)}%</td></tr>`)
+            .join('');
+
+        const srcDate = fm.source_file.match(/\d{4}/) ? fm.source_file.match(/\d{4}/)[0] : '';
+
+        let h = `
+        <div style="background:#1e293b;border:1px solid #f59e0b55;border-radius:8px;padding:10px 16px;margin:0 0 16px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="background:#f59e0b20;border:1px solid #f59e0b;color:#f59e0b;padding:2px 8px;border-radius:4px;font-weight:700;white-space:nowrap;">전체기준</span>
+            <span>출처: <b style="color:#e2e8f0;">${fm.source_file}</b> &nbsp;•&nbsp; 전체 가입 회원 기준 (활성·비활성·이탈 포함)</span>
+        </div>
+        <div class="kpi-grid">${kpiHtml}</div>
+        <div class="chart-grid">
+            <div class="chart-card">
+                <h3>등급별 전체 vs 활성 비교</h3>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead><tr style="border-bottom:1px solid #334155;color:#94a3b8;">
+                        <th style="text-align:left;padding:6px">등급</th>
+                        <th style="text-align:right;padding:6px">전체</th>
+                        <th style="text-align:right;padding:6px;color:#22c55e">활성</th>
+                        <th style="text-align:right;padding:6px;color:#ef4444">비활성</th>
+                        <th style="text-align:right;padding:6px">활성률</th>
+                    </tr></thead>
+                    <tbody style="color:#e2e8f0;">${gradeRows}</tbody>
+                </table>
+            </div>
+            <div class="chart-card"><h3>등급별 비율 <span style="font-size:11px;font-weight:400;color:var(--text-dim);">전체 회원 기준</span></h3><canvas id="fm-chart-grade-donut"></canvas></div>
+            <div class="chart-card"><h3>등급별 인원 (전체 vs 활성)</h3><canvas id="fm-chart-grade-bar"></canvas></div>
+            <div class="chart-card">
+                <h3>통신사 분포 <span style="font-size:11px;font-weight:400;color:var(--text-dim);">전체 회원 기준</span></h3>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead><tr style="border-bottom:1px solid #334155;color:#94a3b8;">
+                        <th style="text-align:left;padding:6px">통신사</th>
+                        <th style="text-align:right;padding:6px">회원 수</th>
+                        <th style="text-align:right;padding:6px">비율</th>
+                    </tr></thead>
+                    <tbody style="color:#e2e8f0;">${telRows}</tbody>
+                </table>
+            </div>
+            <div class="chart-card"><h3>연령대 분포</h3><canvas id="fm-chart-age"></canvas></div>
+            <div class="chart-card"><h3>지역 분포 (상위 10)</h3><canvas id="fm-chart-region"></canvas></div>
+            <div class="chart-card"><h3>프로파일링 수 분포 <span style="font-size:11px;font-weight:400;color:var(--text-dim);">전체 기준 (활성 미분류)</span></h3><canvas id="fm-chart-profile"></canvas></div>
+            <div class="chart-card"><h3>가입연도 코호트</h3><canvas id="fm-chart-cohort"></canvas></div>
+        </div>`;
+
+        document.getElementById('fullmember-content').innerHTML = h;
+
+        const activeAgeDist   = activeLast.age_dist   || {};
+        const activeRegDist   = activeLast.region_dist || {};
+        const activeJoinCohort = activeLast.join_cohort || {};
+        const chartOpts = (axis='y') => ({
+            responsive: true,
+            plugins: { legend: { display: true, labels: { color:'#94a3b8', boxWidth:12 } } },
+            scales: { [axis]: { title:{display:true,text:'명'}, beginAtZero:true, stacked:false } }
+        });
+
+        // 등급 도넛 (전체 비율)
+        const gradeTotals = gradeOrder.map(g => fm.grade_dist?.[g] || 0);
+        chart('fm-chart-grade-donut', {
+            type: 'doughnut',
+            data: {
+                labels: gradeOrder.map((g, i) => {
+                    const cnt = gradeTotals[i];
+                    const pct = fm.total ? (cnt / fm.total * 100).toFixed(2) : 0;
+                    return `${g} (${pct}%)`;
+                }),
+                datasets: [{ data: gradeTotals, backgroundColor: gradeColors, borderWidth: 2, borderColor: '#0f172a' }]
+            },
+            options: { responsive:true, plugins:{ legend:{ position:'right', labels:{ color:'#94a3b8', boxWidth:12, font:{size:12} } } } }
+        });
+
+        // 등급별 인원 전체 vs 활성 막대
+        const gradeActive = gradeOrder.map(g => activeGrade[g] || 0);
+        chart('fm-chart-grade-bar', {
+            type: 'bar',
+            data: {
+                labels: gradeOrder,
+                datasets: [
+                    { label:'전체 회원', data: gradeTotals, backgroundColor: gradeColors.map(c=>c+'60'), borderColor: gradeColors, borderWidth:1, borderRadius:3 },
+                    { label:'활성 회원', data: gradeActive,  backgroundColor: gradeColors.map(c=>c+'cc'), borderColor: gradeColors, borderWidth:1, borderRadius:3 },
+                ]
+            },
+            options: { responsive:true,
+                plugins:{ legend:{ display:true, labels:{ color:'#94a3b8', boxWidth:12 } } },
+                scales:{ y:{ type:'logarithmic', title:{display:true,text:'명 (로그스케일)'}, ticks:{ callback: v => v >= 1000 ? (v/1000).toFixed(0)+'K' : v } } } }
+        });
+
+        // 연령대
+        const AGE_ORDER = ['~19','20대','30대','40대','50대','60+'];
+        const ageKeys = AGE_ORDER.filter(k => fm.age_dist?.[k] !== undefined);
+        chart('fm-chart-age', {
+            type: 'bar',
+            data: { labels: ageKeys, datasets: [
+                { label:'전체 회원', data: ageKeys.map(k => fm.age_dist[k]),    backgroundColor: C[0]+'60', borderColor: C[0], borderWidth:1, borderRadius:3 },
+                { label:'활성 회원', data: ageKeys.map(k => activeAgeDist[k]||0), backgroundColor: C[2]+'99', borderColor: C[2], borderWidth:1, borderRadius:3 },
+            ]},
+            options: chartOpts('y')
+        });
+
+        // 지역 — 전체 기준 상위 10 순서 고정
+        const regEntries = Object.entries(fm.region_dist || {}).sort((a,b)=>b[1]-a[1]);
+        const regKeys = regEntries.map(e=>e[0]);
+        chart('fm-chart-region', {
+            type: 'bar', indexAxis: 'y',
+            data: { labels: regKeys, datasets: [
+                { label:'전체 회원', data: regKeys.map(k => fm.region_dist[k]||0),   backgroundColor: C[0]+'60', borderColor: C[0], borderWidth:1, borderRadius:3 },
+                { label:'활성 회원', data: regKeys.map(k => activeRegDist[k]||0),   backgroundColor: C[2]+'99', borderColor: C[2], borderWidth:1, borderRadius:3 },
+            ]},
+            options: { responsive:true,
+                plugins:{ legend:{ display:true, labels:{ color:'#94a3b8', boxWidth:12 } } },
+                scales:{ x:{ title:{display:true,text:'명'}, beginAtZero:true } } }
+        });
+
+        // 프로파일링 수 (전체만 — 활성 데이터 없음)
+        const profEntries = Object.entries(fm.profile_dist || {});
+        chart('fm-chart-profile', {
+            type: 'bar',
+            data: { labels: profEntries.map(e=>e[0]), datasets: [{
+                label:'전체 회원',
+                data: profEntries.map(e=>e[1]),
+                backgroundColor: C[4]+'99', borderColor: C[4], borderWidth:1, borderRadius:3
+            }]},
+            options: { responsive:true,
+                plugins:{ legend:{ display:true, labels:{ color:'#94a3b8', boxWidth:12 } } },
+                scales:{ y:{ title:{display:true,text:'명'}, beginAtZero:true } } }
+        });
+
+        // 가입연도 코호트
+        const allYears = [...new Set([
+            ...Object.keys(fm.join_cohort || {}),
+            ...Object.keys(activeJoinCohort)
+        ])].sort();
+        chart('fm-chart-cohort', {
+            type: 'bar',
+            data: { labels: allYears, datasets: [
+                { label:'전체 회원', data: allYears.map(y => fm.join_cohort?.[y]||0),    backgroundColor: C[0]+'60', borderColor: C[0], borderWidth:1, borderRadius:3 },
+                { label:'활성 회원', data: allYears.map(y => activeJoinCohort[y]||0),   backgroundColor: C[5]+'99', borderColor: C[5], borderWidth:1, borderRadius:3 },
+            ]},
+            options: chartOpts('y')
+        });
+    }
+
+    // Tab nav
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            const tab = btn.dataset.tab;
+            if (tab==='overview') renderOverview();
+            else if (tab==='engagement') renderEngagement();
+            else if (tab==='monetization') renderMonetization();
+            else if (tab==='demographics') renderDemographics();
+            else if (tab==='funnel') renderFunnel();
+            else if (tab==='cohort') renderCohort();
+            else if (tab==='ga') renderGA();
+            else if (tab==='join') renderJoin();
+            else if (tab==='trend') renderTrend();
+            else if (tab==='fullmember') renderFullMember();
+        });
+    });
+
+    async function init() {
+        try {
+            const resp = await fetch('dashboard_data.json');
+            DATA = await resp.json();
+            document.getElementById('generated-at').textContent = `최종 업데이트: ${DATA.generated_at}`;
+            renderOverview();
+        } catch(e) {
+            document.body.innerHTML = `<h2 style="color:#ef4444;margin:40px;">데이터 로드 실패</h2><p>dashboard_data.json 파일이 없습니다. <code>python process_data.py</code>를 먼저 실행하세요.</p>`;
+        }
+    }
+    init();
+    </script>
+</body>
+</html>
